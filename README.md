@@ -33,6 +33,5 @@ options:
 
 
 #### Files:
-- `hexfile.py` - This file contains all functions related to manipulating hexfiles
-- `programmer.py` - This module communicates with the programmer over serial. Exposes some simple functions to send and receive data.
-- `picchick.py` - This module implements the CLI.
+- `sw/` - Python package that implements the picchick CLI front-end
+- `fw/` - Platformio package Arduino firmware for picchick programmer

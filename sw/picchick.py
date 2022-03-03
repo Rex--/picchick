@@ -96,12 +96,12 @@ if hexfile_reqd:
         sys.exit(1)
     else:
         print(f"Using hexfile: { args.hexfile }")
-    memory = hexfile.getMemoryFromHexfile(args.hexfile)
+    hex_decoder = hexfile.HexfileDecoder(args.hexfile)
 
 # We now have all the hexfile reqs, so take care of the actions
 # that only require the hexfile
 if args.map:
-    hexfile.printMemory(memory)
+    hex_decoder.printMemory()
 
 
 # Second if we need the programmer, we check:
@@ -115,7 +115,10 @@ if programmer_reqd:
         print(f"Could not find port: { args.port }")
         sys.exit(1)
     else:
-        print(f"Using programmer on port: { args.port }")
+        dev = programmer.Programmer(args.port, baud=args.baud)
+        if not dev.connect():
+            print(f"ERROR: Failed to connect to device: { args.port } Exiting...")
+            sys.exit(1)
 
 
 # We now have all the programmer reqs, so do the actions that only
@@ -126,33 +129,27 @@ if args.list_ports:
     programmer.listPorts()
     # else:
         # print("Not including port-list due to valid port flag")
-# List devices if wanted
-if args.list_devices:
-    pass # TODO
 
 
 if args.erase or args.flash or args.read or args.write:
-    dev = programmer.Programmer(args.port, baud=args.baud)
-    if not dev.connect():
-        print("ERROR: Failed to connect to device: { args.port } Exiting...")
-        sys.exit(1)
     dev.start()
     if args.erase:
         dev.erase(int(args.erase, base=16))
-    elif args.flash:
-        pmem = hexfile.rowifyDataBlock(memory)
-        for start_address, row in pmem.items():
+    
+    if args.flash:
+        for start_address, row in hex_decoder.memory.items():
             if start_address < hexfile.USER_ID_START:
                 dev.row(start_address, row)
-        for start_address, word in pmem.items():
+        for start_address, word in hex_decoder.memory.items():
             if hexfile.USER_ID_START <= start_address < hexfile.CONFIG_WORD_START:
                 dev.word(start_address, word[0])
-        for start_address, word in pmem.items():
+        for start_address, word in hex_decoder.memory.items():
             if hexfile.CONFIG_WORD_START <= start_address:
                 dev.word(start_address, word[0])
-    elif args.read:
-        dev.read(int(args.read, base=16))
     elif args.write:
         dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
+    
+    if args.read:
+        dev.read(int(args.read, base=16))
     dev.stop() 
     dev.disconnect()
