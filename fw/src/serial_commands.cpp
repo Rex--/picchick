@@ -31,12 +31,14 @@ void cmd_resp_error(uint8_t *msg, uint8_t msg_len)
 
 uint8_t cmd_hello(void)
 {
+    icsp_init_pins();
     cmd_resp(SERIAL_CMD_HELLO);
     return STATUS_CONNECTED;
 }
 
 uint8_t cmd_bye(void)
 {
+    icsp_reset_pins();
     cmd_resp(SERIAL_CMD_BYE);
     return STATUS_DISCONNECTED;
 }

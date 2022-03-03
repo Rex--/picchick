@@ -5,8 +5,7 @@
 #include "serial_commands.h"
 
 void setup() {
-  init_icsp();
-
+  icsp_reset_pins();
   Serial.begin(9600);
   while (!Serial) {
     ;

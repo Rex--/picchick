@@ -4,7 +4,7 @@
 
 uint8_t icsp_startup_key_bytes[] = ICSP_STARTUP_KEY;
 
-void init_icsp(void)
+void icsp_init_pins(void)
 {
     pinMode(PIN_ICSP_DAT, OUTPUT); // Configure our DAT pin as an output and set it low
     digitalWrite(PIN_ICSP_DAT, LOW);
@@ -14,6 +14,15 @@ void init_icsp(void)
 
     pinMode(PIN_ICSP_MCLR, OUTPUT); // Configure our reset pin and set it high
     digitalWrite(PIN_ICSP_MCLR, HIGH);
+}
+
+void icsp_reset_pins(void)
+{
+    pinMode(PIN_ICSP_DAT, INPUT); // Configure our DAT pin as an input
+
+    pinMode(PIN_ICSP_CLK, INPUT); // COnfigure our CLK pin as an input
+
+    pinMode(PIN_ICSP_MCLR, INPUT); // Configure our reset pin as input
 }
 
 

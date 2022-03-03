@@ -1,4 +1,3 @@
-
 // ICSP Pins
 #define PIN_ICSP_DAT 12
 #define PIN_ICSP_CLK 11
@@ -37,7 +36,8 @@
 #define ICSP_DELAY_PINT_PM 3500 // Program memory internal timed takes max 2.8ms
 #define ICSP_DELAY_PINT_CW 6000 // Configuration word internally timed takes max 5.6 ms
 
-void init_icsp(void);
+void icsp_init_pins(void);
+void icsp_reset_pins(void);
 
 void icsp_enter_program_mode(void);
 void icsp_exit_program_mode(void);

@@ -1,11 +1,4 @@
 
-
-
-
-
-
-
-
 #define SERIAL_CMD_SEP ':'
 #define SERIAL_CMD_OK "OK"
 #define SERIAL_CMD_ERROR "ERROR"
@@ -21,32 +14,11 @@
 #define SERIAL_CMD_ERASE_ALL 0xFFFF
 #define SERIAL_CMD_ERASE_FLASH 0xFFFE
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #define INPUT_BUFFER_SIZE 128
 
 #define PICCHICK_GREETING "HELLO"
 
 #define SERIAL_CMD_FLASH "FLASH"
-
 
 int handle_connection(void);
 
