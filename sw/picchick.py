@@ -47,8 +47,10 @@ parser.add_argument('--write',
     metavar=('addr', 'word'),
     help='write word to specified address or chunk  of memory')
 parser.add_argument('--erase',
+    nargs='?',
+    const='all',
     metavar='addr',
-    help='erase specified address or chunk  of memory')
+    help='erase device or specified address')
 
 # parser.add_argument('-d', '--device',
 #     metavar='dev',
@@ -133,10 +135,18 @@ if args.list_ports:
 
 if args.erase or args.flash or args.read or args.write:
     dev.start()
+
     if args.erase:
-        dev.erase(int(args.erase, base=16))
+        if args.erase == 'all':
+            dev.erase(0xFFFF)
+        elif args.erase == 'flash':
+            dev.erase(0xEFFF)
+        else:
+            dev.erase(int(args.erase, base=16))
     
     if args.flash:
+        
+
         for start_address, row in hex_decoder.memory.items():
             if start_address < hexfile.USER_ID_START:
                 dev.row(start_address, row)

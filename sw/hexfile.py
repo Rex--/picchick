@@ -13,8 +13,10 @@ class HexfileDecoder:
         self.ascii_records = self._readHexfile(path)
         self.records = self._decodeAsciiRecords(self.ascii_records)
         self.word_list = self._decodeWordsFromRecords(self.records)
+
         self.userflash_words = [addr for addr in self.word_list.keys() if addr < USER_ID_START]
         self.config_words = [addr for addr in self.word_list.keys() if addr > USER_ID_START]
+        
         self.memory = self._separateRows(self.word_list)
 
     
