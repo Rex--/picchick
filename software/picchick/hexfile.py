@@ -1,21 +1,27 @@
 
 import copy
 
-PFM_START = 0x0000
-USER_ID_START = 0x8000
-CONFIG_WORD_START = 0x8007
+from . import devices
+
+# PFM_START = 0x0000
+# USER_ID_START = 0x8000
+# CONFIG_WORD_START = 0x8007
 
 
 class HexfileDecoder:
 
-    def __init__(self, path):
+    def __init__(self, path, device):
         self.path = path
+
+        self.device = devices.Device(device)
+        self.device.readDeviceFile(devices.XC8Manager.findXC8Installs()[0])
+
         self.ascii_records = self._readHexfile(path)
         self.records = self._decodeAsciiRecords(self.ascii_records)
         self.word_list = self._decodeWordsFromRecords(self.records)
 
-        self.userflash_words = [addr for addr in self.word_list.keys() if addr < USER_ID_START]
-        self.config_words = [addr for addr in self.word_list.keys() if addr > USER_ID_START]
+        self.userflash_words = [addr for addr in self.word_list.keys() if addr <= self.device.flash.end]
+        self.config_words = [addr for addr in self.word_list.keys() if addr > self.device.flash.end]
         
         self.memory = self._separateRows(self.word_list)
 

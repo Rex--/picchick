@@ -42,16 +42,16 @@ parser.add_argument('--read',
 parser.add_argument('--write',
     nargs=2,
     metavar=('addr', 'word'),
-    help='write word to specified address or chunk  of memory')
+    help='write word to specified address')
 parser.add_argument('--erase',
     nargs='?',
     const='all',
     metavar='addr',
     help='erase device or specified address')
 
-# parser.add_argument('-d', '--device',
-#     metavar='dev',
-#     help='device to be programmed')
+parser.add_argument('-d', '--device',
+    metavar='chipID',
+    help='device to be programmed')
 parser.add_argument('-p', '--port',
     metavar='port',
     help='programmer serial port')
@@ -90,12 +90,14 @@ def parseArgv():
         if args.hexfile is None:
             print(f"Missing argument: hexfile")
             sys.exit(1)
+        elif args.device is None:
+            print("Missing argument: -d, --device chipID")
         elif not os.path.isfile(args.hexfile):
             print(f"Could not find hexfile: { args.hexfile}")
             sys.exit(1)
         else:
             print(f"Using hexfile: { args.hexfile }")
-        hex_decoder = hexfile.HexfileDecoder(args.hexfile)
+        hex_decoder = hexfile.HexfileDecoder(args.hexfile, args.device)
 
     # We now have all the hexfile reqs, so take care of the actions
     # that only require the hexfile
