@@ -8,7 +8,7 @@ from . import programmer
 
 
 DESCRIPTION = '''\
-A utility for programming PIC19196 microcontrollers\
+A utility to aid in programming PIC microcontrollers\
 '''
 
 USAGE = '''\
@@ -82,6 +82,12 @@ def parseArgv():
     programmer_reqd = both_reqd or (args.read or args.erase or args.write)
     # The map flag only requires the hexfile to be present
     hexfile_reqd = both_reqd or (args.map)
+
+    # If we don't need to do anything, print help because
+    # the user needs it
+    if not hexfile_reqd and not programmer_reqd:
+        parser.print_help()
+        sys.exit(0)
 
 
     # Firstly, if we need the hexfile, check if it exists

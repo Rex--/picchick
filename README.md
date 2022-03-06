@@ -1,5 +1,5 @@
 # picchick
-A utility to program PIC microcontrollers
+A utility to aid in programming PIC microcontrollers
 
 
 ## Overview
@@ -11,7 +11,7 @@ It attempts to do the majority of the work on the host computer, and sends a sim
 ## Usage
 
 ```
-usage: picchick.py [options] [hexfile]
+usage: picchick [options] [hexfile]
 
 A utility for programming PIC19196 microcontrollers
 
@@ -22,13 +22,20 @@ options:
   -h, --help            show this help message and exit
   -f, --flash           flash hexfile onto the device
   --read addr           read specified address or chunk of memory
-  --write addr word     write word to specified address or chunk of memory
-  --erase addr          erase specified address or chunk of memory
+  --write addr word     write word to specified address
+  --erase [addr]        erase device or specified address
+  -d chipID, --device chipID
+                        device to be programmed
   -p port, --port port  programmer serial port
   --baud baud           serial connection baudrate
   --map                 display the hexfile
   --list-ports          list available serial ports
   --list-devices        list available device configurations
+
+flag arguments:
+  [addr]:		device memory address in hexadecimal
+	all		all device memory areas
+	flash		user flash area
 ```
 
 
