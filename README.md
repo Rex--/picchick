@@ -4,16 +4,61 @@ A utility to aid in programming PIC microcontrollers
 
 ## Overview
 
-piccchick is a commandline utility written in python that attempts to implement Microchip's PIC ICSP Low-Voltage with just a simple AVR device.
+`piccchick` is a commandline utility written in python that attempts to implement Microchip's ICSP Low-Voltage with just a simple AVR device.
 
-It attempts to do the majority of the work on the host computer, and sends a simple byte stream to an arduino for converting directly into digital signals.
+The function is the same as `avrdude`, i.e. to provide a way to flash a compiled .hex file onto a microcontroller. The typical development stack involving picchick looks like:
+
+> Development (nano)      >   Compiling (xc8-cc)    >    Flashing (picchick)
+
+
+## Installation
+
+### Requirements
+- **`xc8` compiler installed to one of**:
+> (linux) /opt/microchip/xc8/                        \
+> (Windows) c:\Program Files (x86)\Microchip\xc8\        *\*Windows not currently Supported*
+
+- **python >= 3.10**
+  - pyserial
+
+- **Arduino flashed with programmer firmware**
+
+
+#### From PyPi
+`picchick` can be installed using pip:
+```
+pip install picchick
+<...>
+picchick -h
+```
+
+#### From Source
+`picchick` can also be run as a python module:
+```
+cd software/
+python -m picchick -h
+```
+A wrapper script is also provided:
+```
+cd software/
+./picchick.sh -h
+```
 
 ## Usage
 
+#### Flashing
+The typical command to erase then flash a hexfile onto a device looks like:
 ```
+picchick -p <port> -d <chipID> --erase -f <hexfile>
+picchick -p /dev/ttyACM0 -d 16lf19196 --erase -f blink.hex
+```
+
+```
+$> picchick -h
+
 usage: picchick [options] [hexfile]
 
-A utility for programming PIC19196 microcontrollers
+A utility for programming PIC microcontrollers
 
 positional arguments:
   hexfile               path to the hexfile
@@ -30,15 +75,14 @@ options:
   --baud baud           serial connection baudrate
   --map                 display the hexfile
   --list-ports          list available serial ports
-  --list-devices        list available device configurations
 
 flag arguments:
   [addr]:		device memory address in hexadecimal
-	all		all device memory areas
-	flash		user flash area
+	'all'		    all device memory areas
+	'flash'		user flash area
 ```
 
 
 #### Files:
-- `sw/` - Python package that implements the picchick CLI front-end
-- `fw/` - Platformio package Arduino firmware for picchick programmer
+- `software/` - Python package that implements the picchick CLI front-end
+- `firmware/` - Platformio package Arduino firmware for picchick programmer
