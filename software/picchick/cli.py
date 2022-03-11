@@ -67,9 +67,9 @@ parser.add_argument('--map',
 parser.add_argument('--list-ports',
     action='store_true',
     help='list available serial ports')
-parser.add_argument('--list-devices',
-    action='store_true',
-    help='list available device configurations')
+# parser.add_argument('--list-devices',
+#     action='store_true',
+#     help='list available device configurations')
 
 def parseArgv():
     args = parser.parse_args()
@@ -82,10 +82,12 @@ def parseArgv():
     programmer_reqd = both_reqd or (args.read or args.erase or args.write)
     # The map flag only requires the hexfile to be present
     hexfile_reqd = both_reqd or (args.map)
+    # list_ports flag doesn't require anyhting
+    nothing_reqd = (args.list_ports)
 
     # If we don't need to do anything, print help because
     # the user needs it
-    if not hexfile_reqd and not programmer_reqd:
+    if not hexfile_reqd and not programmer_reqd and not nothing_reqd:
         parser.print_help()
         sys.exit(0)
 
@@ -98,6 +100,7 @@ def parseArgv():
             sys.exit(1)
         elif args.device is None:
             print("Missing argument: -d, --device chipID")
+            sys.exit(1)
         elif not os.path.isfile(args.hexfile):
             print(f"Could not find hexfile: { args.hexfile}")
             sys.exit(1)
@@ -150,21 +153,18 @@ def parseArgv():
                 dev.erase(int(args.erase, base=16))
         
         if args.flash:
-            
-
-            for start_address, row in hex_decoder.memory.items():
-                if start_address < hexfile.USER_ID_START:
-                    dev.row(start_address, row)
-            for start_address, word in hex_decoder.memory.items():
-                if hexfile.USER_ID_START <= start_address < hexfile.CONFIG_WORD_START:
-                    dev.word(start_address, word[0])
-            for start_address, word in hex_decoder.memory.items():
-                if hexfile.CONFIG_WORD_START <= start_address:
-                    dev.word(start_address, word[0])
+            for address in hex_decoder.memory:
+                if address <= hex_decoder.device.flash.end:
+                    dev.row(address, hex_decoder.memory[address])
+                else:
+                    dev.word(address, hex_decoder.memory[address][0])
         elif args.write:
             dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
         
         if args.read:
             dev.read(int(args.read, base=16))
-        dev.stop() 
+
+        dev.stop()
+
+    if programmer_reqd:
         dev.disconnect()
