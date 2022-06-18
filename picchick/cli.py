@@ -125,7 +125,6 @@ def parseArgv():
             print(f"Could not find port: { args.port }")
             sys.exit(1)
         else:
-            print(f"Connecting to programmer: {args.port} @ {args.baud}")
             dev = programmer.Programmer(args.port, baud=args.baud)
             if not dev.connect():
                 print(f"ERROR: Failed to connect to device: { args.port } Exiting...")
