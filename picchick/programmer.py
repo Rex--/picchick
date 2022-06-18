@@ -39,10 +39,10 @@ def wait_print(string):
 
 class Programmer:
 
-    def __init__(self, port, baud=9600, timeout=30):
+    def __init__(self, port, baud=9600, timeout=5):
         self._conn = serial.Serial(timeout=timeout)
         self._port = self._conn.port = port
-        self._baud = self._conn.baud = baud
+        self._baud = self._conn.baudrate = baud
     
     def connect(self):
         try:

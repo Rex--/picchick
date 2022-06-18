@@ -38,7 +38,7 @@ parser.add_argument('-f', '--flash',
     help='flash hexfile onto the device')
 parser.add_argument('--read',
     metavar='addr',
-    help='read specified address or chunk  of memory')
+    help='read specified address or chunk of memory')
 parser.add_argument('--write',
     nargs=2,
     metavar=('addr', 'word'),
@@ -52,10 +52,10 @@ parser.add_argument('--erase',
 parser.add_argument('-d', '--device',
     metavar='chipID',
     help='device to be programmed')
-parser.add_argument('-p', '--port',
+parser.add_argument('-P', '--port',
     metavar='port',
     help='programmer serial port')
-parser.add_argument('--baud',
+parser.add_argument('-B', '--baud',
     type=int,
     default=9600,
     metavar='baud',
@@ -125,6 +125,7 @@ def parseArgv():
             print(f"Could not find port: { args.port }")
             sys.exit(1)
         else:
+            print(f"Connecting to programmer: {args.port} @ {args.baud}")
             dev = programmer.Programmer(args.port, baud=args.baud)
             if not dev.connect():
                 print(f"ERROR: Failed to connect to device: { args.port } Exiting...")

@@ -4,11 +4,11 @@ A utility to aid in programming PIC microcontrollers
 
 ## Overview
 
-`piccchick` is a commandline utility written in python that attempts to implement Microchip's ICSP Low-Voltage with just a simple AVR device.
+`piccchick` is a commandline utility written in python that interfaces with a serial device in order to program PIC16 using the low-voltage ICSP interface.
 
 The function is the same as `avrdude`, i.e. to provide a way to flash a compiled .hex file onto a microcontroller. The typical development stack involving picchick looks like:
 
-> Development (nano)      >   Compiling (xc8-cc)    >    Flashing (picchick)
+> Developing (nano)      >   Compiling (xc8-cc)    >    Flashing (picchick)
 
 
 ## Installation
@@ -21,7 +21,8 @@ The function is the same as `avrdude`, i.e. to provide a way to flash a compiled
 - **python >= 3.10**
   - pyserial
 
-- **Arduino flashed with programmer firmware**
+- **Compatible serial programmer**
+  - Currently the only compatible programmer is the [picstick](https://github.org/rex--/picstick).
 
 
 #### From PyPi
@@ -35,22 +36,20 @@ picchick -h
 #### From Source
 `picchick` can also be run as a python module:
 ```
-cd software/
 python -m picchick -h
 ```
 A wrapper script is also provided:
 ```
-cd software/
 ./picchick.sh -h
 ```
 
 ## Usage
 
-#### Flashing
+### Flashing
 The typical command to erase then flash a hexfile onto a device looks like:
 ```
-picchick -p <port> -d <chipID> --erase -f <hexfile>
-picchick -p /dev/ttyACM0 -d 16lf19196 --erase -f blink.hex
+picchick -P <port> -d <chipID> --erase -f <hexfile>
+picchick -P /dev/ttyACM0 -d 16lf19196 --erase -f blink.hex
 ```
 
 ```
@@ -71,8 +70,8 @@ options:
   --erase [addr]        erase device or specified address
   -d chipID, --device chipID
                         device to be programmed
-  -p port, --port port  programmer serial port
-  --baud baud           serial connection baudrate
+  -P port, --port port  programmer serial port
+  -B, --baud baud       serial connection baudrate
   --map                 display the hexfile
   --list-ports          list available serial ports
 
@@ -81,8 +80,3 @@ flag arguments:
 	'all'		    all device memory areas
 	'flash'		user flash area
 ```
-
-
-#### Files:
-- `software/` - Python package that implements the picchick CLI front-end
-- `firmware/` - Platformio package Arduino firmware for picchick programmer
