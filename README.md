@@ -22,7 +22,7 @@ The function is the same as `avrdude`, i.e. to provide a way to flash a compiled
   - pyserial
 
 - **Compatible serial programmer**
-  - Currently the only compatible programmer is the [picstick](https://github.org/rex--/picstick).
+  - Currently the only compatible programmer is the [picstick](https://github.com/rex--/picstick).
 
 
 #### From PyPi
