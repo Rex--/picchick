@@ -12,9 +12,7 @@ class HexfileDecoder:
 
     def __init__(self, path, device):
         self.path = path
-
-        self.device = devices.Device(device)
-        self.device.readDeviceFile(devices.XC8Manager.findXC8Installs()[0])
+        self.device = device
 
         self.ascii_records = self._readHexfile(path)
         self.records = self._decodeAsciiRecords(self.ascii_records)

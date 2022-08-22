@@ -5,6 +5,7 @@ import sys
 
 from . import hexfile
 from . import programmer
+from . import devices
 
 
 DESCRIPTION = '''\
@@ -106,7 +107,9 @@ def parseArgv():
             sys.exit(1)
         else:
             print(f"Using hexfile: { args.hexfile }")
-        hex_decoder = hexfile.HexfileDecoder(args.hexfile, args.device)
+        xcc = devices.XC8CompilerConfgurator()
+        xdevice = xcc.readDeviceFile(args.device)
+        hex_decoder = hexfile.HexfileDecoder(args.hexfile, xdevice)
 
     # We now have all the hexfile reqs, so take care of the actions
     # that only require the hexfile
