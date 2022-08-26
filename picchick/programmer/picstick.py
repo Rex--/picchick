@@ -1,21 +1,8 @@
+# This file contains the programmer interface for the piccstick programmer.
+# It supports the low-voltage ICSP interface for PICs. Design files and firmware
+# is available in the github repo: https://github.com/rex--/picstick
 
-import serial
-import serial.tools.list_ports
-
-
-# Helper functions to deal with ascii and binary
-def ASCII(string):
-    return string.encode(encoding='ascii')
-
-def INTBYTES(number, len=2):
-    return number.to_bytes(len, 'big')
-
-def ROWBYTES(row):
-    word_bytes = bytearray()
-    for word in row:
-        word_bytes += INTBYTES(word)
-    return word_bytes
-
+from .programmer import *
 
 # PreDefined Characters and Commands
 SEP = ASCII(':')
@@ -30,20 +17,9 @@ WORD = ASCII('WORD')
 READ = ASCII('READ')
 ERASE = ASCII('ERASE')
 
+@PicchickProgrammer('picstick')
+class PicstickProgrammer(ProgrammerInterface):
 
-# General Helper functions
-def wait_print(string):
-    print(string, end=' ', flush=True)
-
-
-
-class Programmer:
-
-    def __init__(self, port, baud=9600, timeout=5):
-        self._conn = serial.Serial(timeout=timeout)
-        self._port = self._conn.port = port
-        self._baud = self._conn.baudrate = baud
-    
     def connect(self):
         try:
             self._conn.open()
@@ -92,16 +68,6 @@ class Programmer:
             self.disconnect()
             return False
         print ('success')
-        return True
-    
-    def address(self, address):
-        wait_print("Setting start address to: 0x%.4X..." % address)
-        self._conn.write(ADDR + SEP + INTBYTES(address))
-        if self.__check_response() is not True:
-            print('failed. Closing connection')
-            self.disconnect()
-            return False
-        print('success')
         return True
     
     def word(self, address, word):
@@ -153,9 +119,3 @@ class Programmer:
             return resp
 
 
-# Utlity functions
-def listPorts():
-    ports = serial.tools.list_ports.comports()
-    print(f"{ len(ports) } serial devices found:")
-    for port in ports:
-        print(f"{ port.device }\t{ port.product }")

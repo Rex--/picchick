@@ -23,36 +23,29 @@ flag arguments:
 \tflash\t\tuser flash area
 '''
 
-parser = argparse.ArgumentParser(
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    description=DESCRIPTION,
-    usage=USAGE,
-    epilog=EPILOG)
+parser = argparse.ArgumentParser('picchick',
+    description=DESCRIPTION)
+    # formatter_class=argparse.RawDescriptionHelpFormatter,
+    # usage=USAGE)
+    # epilog=EPILOG)
 
+# Input hexfile
 parser.add_argument('hexfile',
     nargs='?',
     default=None,
-    help='path to the hexfile')
+    help='path to a hexfile')
 
-parser.add_argument('-f', '--flash',
-    action='store_true',
-    help='flash hexfile onto the device')
-parser.add_argument('--read',
-    metavar='addr',
-    help='read specified address or chunk of memory')
-parser.add_argument('--write',
-    nargs=2,
-    metavar=('addr', 'word'),
-    help='write word to specified address')
-parser.add_argument('--erase',
-    nargs='?',
-    const='all',
-    metavar='addr',
-    help='erase device or specified address')
-
+# Device config flags
 parser.add_argument('-d', '--device',
     metavar='chipID',
     help='device to be programmed')
+
+# Programmer config flags
+parser.add_argument('-c',
+    metavar='programmer',
+    dest='programmer',
+    choices=programmer.registry.keys(),
+    help='type of programmer')
 parser.add_argument('-P', '--port',
     metavar='port',
     help='programmer serial port')
@@ -62,6 +55,27 @@ parser.add_argument('-B', '--baud',
     metavar='baud',
     help='serial connection baudrate',)
 
+# Programmer action flags
+parser.add_argument('-f', '--flash',
+    action='store_true',
+    help='flash hexfile onto the device')
+parser.add_argument('--read',
+    metavar='addr',
+    help='read word at specified address')
+parser.add_argument('--write',
+    nargs=2,
+    metavar=('addr', 'word'),
+    help='write word to specified address')
+parser.add_argument('--erase',
+    nargs='?',
+    const='all',
+    metavar='addr',
+    help='erase device or specified address')
+parser.add_argument('--reset',
+    action='store_true',
+    help='reset device')
+
+# Informational action flags
 parser.add_argument('--map',
     action='store_true',
     help='display the hexfile')
@@ -118,9 +132,20 @@ def parseArgv():
 
 
     # Second if we need the programmer, we check:
+    # - If the -c argument is specified
+    # - If the specified programmer exists (argparse does this when we specify choices)
     # - If the -p argument is specified
     # - If the path exists (This may not work on windows)
     if programmer_reqd:
+
+        # Check if programmer exists
+        if args.programmer is None:
+            print("Missing argument: -c")
+            sys.exit(1)
+        else:
+            chosen_programmer = programmer.registry[args.programmer]
+
+        # Check if port exists
         if args.port is None:
             print("Missing argument: -p port")
             sys.exit(1)
@@ -128,7 +153,7 @@ def parseArgv():
             print(f"Could not find port: { args.port }")
             sys.exit(1)
         else:
-            dev = programmer.Programmer(args.port, baud=args.baud)
+            dev = chosen_programmer(args.port, baud=args.baud)
             if not dev.connect():
                 print(f"ERROR: Failed to connect to device: { args.port } Exiting...")
                 sys.exit(1)
@@ -138,10 +163,9 @@ def parseArgv():
     # need the programmer:
     # Display information about ports if flag was included
     if args.list_ports:
-        # if args.port is None:
         programmer.listPorts()
-        # else:
-            # print("Not including port-list due to valid port flag")
+        if args.port is not None:
+            print("INFO: --list-ports flag included with valid programmer")
 
 
     if args.erase or args.flash or args.read or args.write:
@@ -156,10 +180,16 @@ def parseArgv():
                 dev.erase(int(args.erase, base=16))
         
         if args.flash:
+            success_rows = 0
+            print(f"Starting write of flash rows...")
             for address in hex_decoder.memory:
                 if address <= hex_decoder.device.flash.end:
-                    dev.row(address, hex_decoder.memory[address])
-                else:
+                    if dev.row(address, hex_decoder.memory[address]):
+                        success_rows += 1
+            print(f"Successfully wrote {success_rows} rows ({int((success_rows*64*14)/8)} bytes)")
+
+            for address in hex_decoder.memory:
+                if address > hex_decoder.device.flash.end:
                     dev.word(address, hex_decoder.memory[address][0])
         elif args.write:
             dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
@@ -170,4 +200,9 @@ def parseArgv():
         dev.stop()
 
     if programmer_reqd:
+        if args.reset:
+            try:
+                dev.reset()
+            except NotImplementedError:
+                print(f"Programmer { args.programmer } does not support Resets!")
         dev.disconnect()
