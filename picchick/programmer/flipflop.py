@@ -20,8 +20,8 @@ ERASE = b'D'
 @PicchickProgrammer('flipflop')
 class FlipflopProgrammer(ProgrammerInterface):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, timeout=0.5, **kwargs):
+        super().__init__(*args, timeout=timeout, **kwargs)
         self._reset = False
 
     def connect(self):
@@ -34,12 +34,16 @@ class FlipflopProgrammer(ProgrammerInterface):
         self._conn.flushInput()
         self._conn.write(GREETING)
         self._conn.read(1)
-        if self.__check_response(expected_resp=OK) is not True:
-            print('device failed to respond')
-            self.disconnect()
-            return False
-        print("connected to flipflop")
-        return True
+        for timeout in range(20):
+            self._conn.write(GREETING)
+            self._conn.read(1)
+            if self.__check_response(expected_resp=OK):
+                print("connected to flipflop")
+                return True
+
+        print('device failed to respond')
+        self.disconnect()
+        return False
 
         # Disconnecting starts the user app by default. Override with --reset
     def disconnect(self):
