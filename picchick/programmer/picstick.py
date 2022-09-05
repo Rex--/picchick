@@ -26,7 +26,7 @@ class PicstickProgrammer(ProgrammerInterface):
         except serial.SerialException:
             print(f"Failed to open serial port: { self._port }")
             return False
-        wait_print(f"Connecting to device: { self._port } @ { self._baud }\nSending greeting...")
+        wait_print(f"Connecting to picstick: { self._port } @ { self._baud }\nSending greeting...")
         self._conn.flushInput()
         self._conn.write(GREETING + SEP)
         if self.__check_response(expected_resp=GREETING) is not True:
@@ -87,7 +87,7 @@ class PicstickProgrammer(ProgrammerInterface):
         if self.__check_response() is not True:
             print('failed')
             return False
-        print('success')
+        print('\r', end='')
         return True
 
     def read(self, address):
