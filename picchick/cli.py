@@ -13,8 +13,8 @@ A utility to aid in programming PIC microcontrollers\
 '''
 
 USAGE = '''\
-picchick [-h] [--read addr] [--write addr word] [--erase [addr]] [-f] [--map] [--list-ports] [hexfile]
-       picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] [--reset] -f <hexfile>
+picchick [--read addr] [--write addr word] [--erase [addr]] [--verify] [-f] [--map] [--list-ports] [hexfile]
+       picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] [--verify] [--reset] -f <hexfile>
        picchick [-d mcu] --map [hexfile]
 '''
 
@@ -73,6 +73,9 @@ parser.add_argument('--erase',
 parser.add_argument('-f', '--flash',
     action='store_true',
     help='flash hexfile onto the device')
+parser.add_argument('--verify',
+    action='store_true',
+    help='verify device memory')
 parser.add_argument('--reset',
     action='store_true',
     help='reset device')
@@ -94,7 +97,7 @@ def parseArgv():
     # Requirements tree
 
     # Flash flag requires both the hexfile and the programmer
-    both_reqd = (args.flash)
+    both_reqd = (args.flash or args.verify)
     # The read and erase flags only require the programmer connection
     programmer_reqd = both_reqd or (args.read or args.erase or args.write)
     # The map flag only requires the hexfile to be present
@@ -190,7 +193,7 @@ def parseArgv():
             print("INFO: --list-ports flag included with valid programmer")
 
 
-    if args.erase or args.flash or args.read or args.write:
+    if args.erase or args.flash or args.read or args.write or args.verify:
         dev.start()
 
         if args.erase:
@@ -216,7 +219,27 @@ def parseArgv():
         
         if args.read:
             dev.read(int(args.read, base=16))
+        
+        if args.verify:
+            print('Verifying memory...')
+            fail = False
+            if hexfile_reqd:
+                # If we have loaded the hexfile verify against that
+                for address, word in hexobj.memory.items():
+                    word_verify = dev.read(address)
+                    if word != int.from_bytes(word_verify, 'big'):
+                        print(f"ERROR: Verification failed at address: x{address:X}")
+                        fail = True
+                        break
+            elif args.write:
+                # Else verify the written word
+                word_verify = dev.read(int(args.write[0], base=16))
+                if int(args.write[1], base=16) != int.from_bytes(word_verify, 'big'):
+                    fail = True
+                    print(f"ERROR: Verification failed: x{int(args.write[0], base=16):X} - {int(args.write[1], base=16)} != {int.from_bytes(word_verify, 'little')}")
 
+            if not fail:
+                print('Successfully verified memory')
         dev.stop()
 
     if programmer_reqd:

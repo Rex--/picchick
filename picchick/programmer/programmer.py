@@ -53,17 +53,17 @@ class ProgrammerInterface:
         # Leave programming mode.
         raise NotImplementedError
 
-    def writeWord(self, address, word):
+    def word(self, address, word):
         # Write a single word to the device. This is mostly used for
         # configuration words and EEPROM.
         raise NotImplementedError
     
-    def writeRow(self, address, row):
+    def row(self, address, row):
         # Write a row (64 words) to the device. This is used to reprogram the
         # device's flash.
         raise NotImplementedError
 
-    def readWord(self, address):
+    def read(self, address):
         # Read a single word from the device. This should be able to read the
         # entire flash memory of the device.
         raise NotImplementedError
@@ -71,6 +71,12 @@ class ProgrammerInterface:
     def erase(self, address):
         # Erase a particular address. Some addresses are reserved for special
         # cases.
+        raise NotImplementedError
+    
+    def verify(self, memory):
+        # Verify's the connected device against the given memory. If all of the
+        # memory addresses are the same, it should return True, False otherwise.
+        # Memory is a dict of address: word
         raise NotImplementedError
     
     def reset(self):

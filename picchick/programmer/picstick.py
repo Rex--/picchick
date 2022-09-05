@@ -97,8 +97,8 @@ class PicstickProgrammer(ProgrammerInterface):
             print('failed')
             return False
         resp = self._conn.read(size=2)
-        print('0x' + resp.hex().upper())
-        return True
+        print('\r', end='')
+        return resp
     
     def erase(self, address):
         wait_print("Erasing Row: 0x%.4X..." % (address))
@@ -117,5 +117,3 @@ class PicstickProgrammer(ProgrammerInterface):
             return True
         else:
             return resp
-
-

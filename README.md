@@ -63,8 +63,8 @@ A wrapper script is also provided:
 ## Usage
 ```
 $> picchick -h
-usage: picchick [-h] [--read addr] [--write addr word] [--erase [addr]] [-f] [--map] [--list-ports] [hexfile]
-       picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] [--reset] -f <hexfile>
+usage: picchick [--read addr] [--write addr word] [--erase [addr]] [--verify] [-f] [--map] [--list-ports] [hexfile]
+       picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] [--verify] [--reset] -f <hexfile>
        picchick [-d mcu] --map [hexfile]
 
 A utility to aid in programming PIC microcontrollers
@@ -82,6 +82,7 @@ options:
   --write addr word     write word to specified address
   --erase [addr]        erase device or specified address
   -f, --flash           flash hexfile onto the device
+  --verify              verify device memory
   --reset               reset device
   --map                 display the hexfile
   --list-ports          list available serial ports
@@ -95,7 +96,7 @@ flag arguments:
 ### Examples
 The typical command to erase then flash a hexfile onto a device looks like:
 ```
-picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] -f <hexfile>
+picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] [--verify] -f <hexfile>
 
 picchick -c picstick -d 16lf19196 -P /dev/ttyACM0 -B 115200 --erase -f blink.hex
 ```
