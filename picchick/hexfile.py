@@ -1,65 +1,122 @@
-
 import copy
-
+import textwrap
 from . import devices
 
-# PFM_START = 0x0000
-# USER_ID_START = 0x8000
-# CONFIG_WORD_START = 0x8007
+
+def loadHexfile(path, device):
+    with open(path) as hexfile:    
+        if device.family == 'pic':
+            hexobj = MCHIPHXDecoder.decode(hexfile, device)
+        else:
+            hexobj = INHX32Decoder.decode(hexfile)
+
+    return hexobj
 
 
-class HexfileDecoder:
+class Hexfile:
+    records = [] # These contain the whole hexfile in various formats
+    memory = {}
 
-    def __init__(self, path, device):
-        self.path = path
-        self.device = device
+    flash = {}  # These are portions of the hexfile
+    config = {}
+    data = {}
 
-        self.ascii_records = self._readHexfile(path)
-        self.records = self._decodeAsciiRecords(self.ascii_records)
-        self.word_list = self._decodeWordsFromRecords(self.records)
+    data_width = 1    # By default all data is 1 byte wide
 
-        self.userflash_words = [addr for addr in self.word_list.keys() if addr <= self.device.flash.end]
-        self.config_words = [addr for addr in self.word_list.keys() if addr > self.device.flash.end]
-        
-        self.memory = self._separateRows(self.word_list)
+    def chunkFlash(self, chunksize=64, padding=0x3FFF):
+        rows = {}
 
-    
-    def getMemory(self):
-        return self.memory
-
-    def printMemory(self):
-        print('\n PFM   :   x0     x1     x2     x3     x4     x5     x6     x7     x8     x9     xA     xB     xC     xD     xE     xF')
-        print('-------:-----------------------------------------------------------------------------------------------------------------')
-        for word_address in self.userflash_words:
-            if word_address % 16 == 0 or word_address == 0:
-                if word_address % 64 == 0:
-                    if word_address == 0:
-                        print('0x%.4X + ' % word_address, end='')
-                    else:
-                        print('\n0x%.4X + ' % word_address, end='')
+        for word_address in sorted(self.flash):
+            row_start_address = word_address - (word_address % chunksize)
+            row_address_offset = word_address - row_start_address
+            
+            if row_start_address not in rows:
+                if padding is not None:
+                    rows[row_start_address] = [padding for _ in range(chunksize)]
                 else:
-                    print('\n0x%.4X | ' % word_address, end='')
-            print('0x%.4X ' % self.word_list[word_address], end='')
+                    rows[row_start_address] = []
+            
+            rows[row_start_address][row_address_offset] = self.flash[word_address]
+        
+        return rows
+    
+    def __repr__(self):
+        hexfile_str = '  ADDR |'
+        
+        # Address labels across the top
+        for num in range(16):
+            hexfile_str += (' ' * ((self.data_width*2)-1))
+            hexfile_str += ('x%.1X ' % num)
+        hexfile_str += '\n-------+' + ('-' * ((4+((self.data_width-1)*2))*16)) + '\n'
 
-        print('\n       :\nCONFIG :\n-------:--------')
-        for word_address in self.config_words:
-            print ('0x%.4X | 0x%.4X' % (word_address, self.word_list[word_address]))
-        print('')
+        # Flash data
+        for address, row in self.chunkFlash(chunksize=16, padding=' '*(self.data_width*8//4)).items():
+
+            # Address label on side
+            if address > 0xFFFFF:
+                hexfile_str += f"{(('x%X|') % address):>8}"
+            # elif address > 0xFFFF:
+            #     hexfile_str += (('x%X |') % address)
+            else:
+                hexfile_str += f"{(('x%X |') % address):>8}"
+
+            # Table data
+            for data in row:
+                if type(data) == int:
+                    hexfile_str += (' x%.' + str(self.data_width*2) + 'X') % data
+                else:
+                    hexfile_str += ('  ' + data)
+            hexfile_str += '\n'
+        
+        # Configuration data
+        for address, data in self.config.items():
+            hexfile_str += ((' x%.4X = x%.'+str(self.data_width*2)+'X\n') % (address, data))
+        
+        if len(self.data) > 0:
+            eeprom_str = ''
+            for address, data in self.data.items():
+                eeprom_str += ' %X' % data
+
+            hexfile_str += textwrap.fill(eeprom_str, 100)
+        
+        # Remove trailing newline and whitespace
+        return hexfile_str.rstrip()
+
+class INHX32Decoder:
+
+    # Decodes a hexfile according to the Intel Hex 32-bit specification
+    @staticmethod
+    def decode(file):
+        # Load up a Intel hexfile into its individual records.
+        loaded_hex = Hexfile()
+        ascii_records = INHX32Decoder.readFile(file)
+        loaded_hex.records = INHX32Decoder.decodeAscii(ascii_records)
+
+        # Default is to decode records into bytes
+        loaded_hex.memory = INHX32Decoder.decodeBytes(loaded_hex.records)
+
+        # And assume it's all flash
+        loaded_hex.flash = loaded_hex.memory
+
+        return loaded_hex
 
     # Read hexfile in and output a list of records
     # A record is an intel hex 'command'
     # Each record is proceeded by an ascii ':'
-    def _readHexfile(self, path_to_hexfile):
-        # Read the entire hexfile (Shouldn't be more than 56k * 2)
-        with open(path_to_hexfile) as hexfile:
-            hexfile_data = hexfile.read()
+    @staticmethod
+    def readFile(file):
+        # Read the entire hexfile into memory.
+        hexfile_data = file.read()
 
-        hexfile_data = hexfile_data.replace('\n', '') # Remove newlines
-        hexfile_data = hexfile_data.lstrip(':').split(':') # Split the file at the record marks ':' to get a list of records
+        # Remove newlines and split records at the colons.
+        hexfile_data = hexfile_data.replace('\n', '')
+        hexfile_data = hexfile_data.lstrip(':').split(':')
         return hexfile_data
 
     # Decode the list of ascii records to a list of dicts containing record information
-    def _decodeAsciiRecords(self, ascii_records):
+    # TODO: This would be a good place for checksum verification of hexfile records.
+    @staticmethod
+    def decodeAscii(ascii_records):
         decoded_records = []
         for record in ascii_records:
             data_len = int(record[0:2], base=16) # First ASCII hex byte is the data length
@@ -70,26 +127,92 @@ class HexfileDecoder:
             decoded_records.append(dict(data_len=data_len, offset_addr=offset_addr, record_type=record_type, data=data, checksum=checksum))
         return decoded_records
 
-    # Decodes a list of record objects to a dictionary containg [Address]: <Word>
+    # Decodes a list of record objects to a dictionary containing <addr> : <byte>
+    # NOTE: This is untested and currently unused.
+    @staticmethod
+    def decodeBytes(decoded_records):
+        data_bytes = {}
+        high_address = 0 # The high address defaults to 0x0000 unless a hex record sets it otherwise
+        for record in decoded_records: 
+            if record['offset_addr'] != 0:
+                low_address = record['offset_addr']
+            else:
+                low_address = 0
+            byte_start = 0
+
+            if record['record_type'] == 4 and record['data_len'] == 2: # A record with type 4 sets the high address
+                high_address = int(record['data'], base=16)
+                high_address = (high_address << 16)
+
+            elif record['record_type'] == 0: # A record with type 0 is a data record
+                # Loop through our 'data' and extract the bytes while calculating a direct address
+                while byte_start <= (record['data_len'] * 2) - 2:
+                    # The complete address is a combination of a high and low byte
+                    address = high_address + low_address
+
+                    dbyte = int(record['data'][byte_start:byte_start+2], base=16)
+                    data_bytes[address] = dbyte
+
+                    # Skip to the next byte and increment the address
+                    byte_start += 2
+                    low_address += 1
+        return data_bytes
+
+
+class MCHIPHXDecoder:
+
+    # Decodes a hexfile according to microchip's specification for PICs
+    @staticmethod
+    def decode(file, device):
+        # First decode the intel hexfile according to the spec
+        loaded_hex = Hexfile()
+        loaded_hex.data_width = 2   # Words are 2-byte wide
+        ascii_records = INHX32Decoder.readFile(file)
+        loaded_hex.records = INHX32Decoder.decodeAscii(ascii_records)
+
+        # Translate these records according to Microchip's PIC spec
+        # A 14-bit word is represented by two bytes in little endian
+        loaded_hex.memory = MCHIPHXDecoder.decodeWords(loaded_hex.records)
+        for addr, word in loaded_hex.memory.items():
+            if addr <= device.flash.end:
+                loaded_hex.flash[addr] = word
+            elif device.config.start <= addr <= device.config.end:
+                loaded_hex.config[addr] = word
+            elif device.user_id.start <= addr <= device.user_id.end:
+                loaded_hex.config[addr] = word
+            # TODO: EEPROM not implemented
+            elif device.eeprom.start <= addr <= device.eeprom.end:
+                loaded_hex.data[addr] = word
+        
+        # Chunk up flash into rows if writes require it
+        # if device.flash.memtype == 'READWRITE_A' or device.flash.memtype == 'READWRITE_B':
+        #     loaded_hex.flash = MCHIPHXDecoder.chunkWords(flash_words, device.blocksize)
+        # else:
+        #     loaded_hex.flash = flash_words
+        
+        return loaded_hex
+
+    # Decodes a list of record objects to a dictionary containing [Address]: <Word>
     # Records MUST be in the order they were in the hexfile
     # Hex records supported so far are:
     # - DATA: 0x00
     # - Ext Linear Address: 0x04
-    def _decodeWordsFromRecords(self, decoded_records):
+    @staticmethod
+    def decodeWords(decoded_records):
         words = {}
         high_address = 0 # The high address defaults to 0x0000 unless a hex record sets it otherwise
-        for record in decoded_records: 
+        for record in decoded_records:
             if record['offset_addr'] != 0:
                 low_address = record['offset_addr'] // 2    # Address are 2x that of the pic memory in the hex file since it takes 2 bytes per word
             else:
                 low_address = 0
-            word_start = 0
 
             if record['record_type'] == 4 and record['data_len'] == 2: # A record with type 4 sets the high address
                 high_address = int(record['data'], base=16)
                 high_address = (high_address << 16) // 2    # Address are double in the hex file
 
             elif record['record_type'] == 0: # A record with type 0 is a data record that holds words
+                word_start = 0
                 # Loop through our 'data' and extract the words while calculating a direct address
                 while word_start <= (record['data_len'] * 2) - 4:
                     # The complete address is a combination of 2 high bytes and 2 low bytes which represent a 15-bit address
@@ -104,23 +227,23 @@ class HexfileDecoder:
 
         return words
 
-    # Separates a dict of {addr: word} into rows 64 words long
+    # Separates a dict of {addr: word} into rows <chunksize> words long
     # Returns a dict of {start_addr: [row_data]} with row data
-    # being a list of words paded with 0x3FFF
-    def _separateRows(self, words):
+    # being a list of words padded with <padding>
+    @staticmethod
+    def chunkWords(words, chunksize=64, padding=0x3FFF):
         rows = {}
 
-        for word_address in self.userflash_words:
-            
-            row_start_address = word_address - (word_address % 64)
+        for word_address in sorted(words):
+            row_start_address = word_address - (word_address % chunksize)
             row_address_offset = word_address - row_start_address
             
             if row_start_address not in rows:
-                rows[row_start_address] = [0x3FFF for _ in range(64)]
-            
+                if padding is not None:
+                    rows[row_start_address] = [padding for _ in range(chunksize)]
+                else:
+                    rows[row_start_address] = []
+
             rows[row_start_address][row_address_offset] = words[word_address]
-        
-        for word_address in self.config_words:
-            rows[word_address] = [words[word_address]]
         
         return rows

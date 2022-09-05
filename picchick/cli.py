@@ -13,21 +13,23 @@ A utility to aid in programming PIC microcontrollers\
 '''
 
 USAGE = '''\
-picchick [options] [hexfile]\
+picchick [-h] [--read addr] [--write addr word] [--erase [addr]] [-f] [--map] [--list-ports] [hexfile]
+       picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] [--reset] -f <hexfile>
+       picchick [-d mcu] --map [hexfile]
 '''
 
 EPILOG = '''\
 flag arguments:
-  [addr]:\t\tdevice memory address in hexadecimal
-\tall\t\tall device memory areas
-\tflash\t\tuser flash area
+  addr:\t\t\tdevice memory address in hexadecimal
+\t'all'\t\tall device memory areas
+\t'flash'\t\tuser flash area
 '''
 
 parser = argparse.ArgumentParser('picchick',
-    description=DESCRIPTION)
-    # formatter_class=argparse.RawDescriptionHelpFormatter,
-    # usage=USAGE)
-    # epilog=EPILOG)
+    description=DESCRIPTION,
+    usage=USAGE,
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog=EPILOG)
 
 # Input hexfile
 parser.add_argument('hexfile',
@@ -37,7 +39,7 @@ parser.add_argument('hexfile',
 
 # Device config flags
 parser.add_argument('-d', '--device',
-    metavar='chipID',
+    metavar='mcu',
     help='device to be programmed')
 
 # Programmer config flags
@@ -56,9 +58,6 @@ parser.add_argument('-B', '--baud',
     help='serial connection baudrate',)
 
 # Programmer action flags
-parser.add_argument('-f', '--flash',
-    action='store_true',
-    help='flash hexfile onto the device')
 parser.add_argument('--read',
     metavar='addr',
     help='read word at specified address')
@@ -71,6 +70,9 @@ parser.add_argument('--erase',
     const='all',
     metavar='addr',
     help='erase device or specified address')
+parser.add_argument('-f', '--flash',
+    action='store_true',
+    help='flash hexfile onto the device')
 parser.add_argument('--reset',
     action='store_true',
     help='reset device')
@@ -91,12 +93,14 @@ def parseArgv():
 
     # Requirements tree
 
-    # Flash flag requires both the hexfile and the programmer (port)
+    # Flash flag requires both the hexfile and the programmer
     both_reqd = (args.flash)
-    # The read and erase flags only require the programmer connection (and port flag)
+    # The read and erase flags only require the programmer connection
     programmer_reqd = both_reqd or (args.read or args.erase or args.write)
     # The map flag only requires the hexfile to be present
-    hexfile_reqd = both_reqd or (args.map)
+    hexfile_reqd = both_reqd or args.map
+    # Device object required
+    device_reqd = hexfile_reqd
     # list_ports flag doesn't require anyhting
     nothing_reqd = (args.list_ports)
 
@@ -107,28 +111,46 @@ def parseArgv():
         sys.exit(0)
 
 
-    # Firstly, if we need the hexfile, check if it exists
+    # Firstly, if we need the hexfile, check if it exists and load it.
     # If not, immediatly exit with a helpful message
     if hexfile_reqd:
         if args.hexfile is None:
             print(f"Missing argument: hexfile")
             sys.exit(1)
         elif args.device is None:
-            print("Missing argument: -d, --device chipID")
-            sys.exit(1)
+            if programmer_reqd:
+                # Allow local operations on hexfile without specifying device
+                print("Missing argument: -d, --device chipID")
+                sys.exit(1)
         elif not os.path.isfile(args.hexfile):
             print(f"Could not find hexfile: { args.hexfile}")
             sys.exit(1)
+
+        if args.device is None:
+            # Device flag not defined, create empty one
+            xdevice = devices.Device('')
         else:
-            print(f"Using hexfile: { args.hexfile }")
-        xcc = devices.XC8CompilerConfgurator()
-        xdevice = xcc.readDeviceFile(args.device)
-        hex_decoder = hexfile.HexfileDecoder(args.hexfile, xdevice)
+            try:
+                xdevice = devices.XC8CompilerConfigurator().readDeviceFile(args.device)
+                print(f"Found device: { xdevice.family }{ args.device }")
+            except:
+                print(f"WARNING: Could not find device: { args.device } -- Using defaults")
+                if not programmer_reqd:
+                    # We allow local operations with a skeleton device
+                    xdevice = devices.Device(args.device)
+                else:
+                    print(f"Could not find device: { args.device }")
+                    sys.exit(1)
+
+        print(f"Using hexfile: { args.hexfile }")
+        hexobj = hexfile.loadHexfile(args.hexfile, xdevice)
 
     # We now have all the hexfile reqs, so take care of the actions
     # that only require the hexfile
     if args.map:
-        hex_decoder.printMemory()
+        print(hexobj)
+        # hexfile.printHexfile(hexobj)
+        # hex_decoder.printMemory()
 
 
     # Second if we need the programmer, we check:
@@ -182,15 +204,13 @@ def parseArgv():
         if args.flash:
             success_rows = 0
             print(f"Starting write of flash rows...")
-            for address in hex_decoder.memory:
-                if address <= hex_decoder.device.flash.end:
-                    if dev.row(address, hex_decoder.memory[address]):
-                        success_rows += 1
+            for address, row in hexobj.chunkFlash().items():
+                if dev.row(address, row):
+                    success_rows += 1
             print(f"Successfully wrote {success_rows} rows ({int((success_rows*64*14)/8)} bytes)")
 
-            for address in hex_decoder.memory:
-                if address > hex_decoder.device.flash.end:
-                    dev.word(address, hex_decoder.memory[address][0])
+            for address, word in hexobj.config.items():
+                dev.word(address, word)
         elif args.write:
             dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
         

@@ -23,11 +23,9 @@ import pathlib
 # This class holds information about a specific range of memory. It holds
 # specific memory addresses and additional information about the type of memory.
 class MemoryRange:
-
     start = None
     end = None
     length = None
-
     memtype = None
 
     # We can create a new memory range by either:
@@ -57,25 +55,38 @@ class MemoryRange:
             self.end = None
             self.length = None
 
-
-# This class holds the device data needed for verifying the decoded hexfile 
-class XC8Device:
-
-    chip_id = None  # xc8 compiler chip identifier
-
-    flash = None    # Memory range that spans User Flash
-    config = None   # Memory range that spans Config Words
+class Device:
+    family = None   # Family of chip
+    arch = None     # Chip architecture
+    chip_id = None  # Chip identifier
 
     def __init__(self, chip_id):
-        self.chip_id = chip_id.upper()      # Chip_id is stored as uppercase string
+        self.chip_id = chip_id.upper()
+    
+    def configure(self, *args, **kwargs):
+        raise NotImplementedError
 
+
+class PICDevice(Device):
+    family = 'pic'
+    # Memory Ranges
+    flash = None    # Memory range that spans User Flash
+    config = None   # Memory range that spans Config Words
+    user_id = None
+    eeprom = None
+
+    blocksize = None
 
     def configure(self, devicefile):
+        # Device arch
+        #   'ARCH' : PIC12, PIC14, PIC16 etc.
+        self.arch = devicefile.get(self.chip_id, 'ARCH')
 
         # (Flash) memory range from addresses 0x0 to the flash_size-1
         #   'ROMSIZE' : length of flashsize stored as a string in hexadecimal
+        #   'FLASHTYPE' : Type of flash
         self.flash = MemoryRange(length=int(devicefile.get(self.chip_id, 'ROMSIZE'), base=16))
-        self.flash.memtype = 'flash'
+        self.flash.memtype = devicefile.get(self.chip_id, 'FLASHTYPE')
 
         # (Config Word) memory range that spans the configuration word addresses
         #   'CONFIG' : Range of addresses stored as hexadecimal separated by a '-'
@@ -86,6 +97,28 @@ class XC8Device:
         )
         self.config.memtype = 'config'
 
+        # (User ID) Memory range that spans the user id region
+        #   'IDLOC' : <start>-<end>
+        id_range = devicefile.get(self.chip_id, 'IDLOC').split('-')
+        self.user_id = MemoryRange(
+            start=int(id_range[0], base=16),
+            end=int(id_range[1], base=16)
+        )
+        self.user_id.memtype = 'user_id'
+
+        # (EEPROM) Memory range that spans the eeprom flash region
+        #   'EEPROM' : start-end
+        eeprom_range = devicefile.get(self.chip_id, 'EEPROM').split('-')
+        self.eeprom = MemoryRange(
+            start=int(eeprom_range[0], base=16),
+            end=int(eeprom_range[1], base=16)
+        )
+        self.eeprom.memtype = 'eeprom'
+
+        # (Blocksize) The size of a flash writing block
+        #   'FLASH_WRITE' : <int>
+        self.blocksize = int(devicefile.get(self.chip_id, 'FLASH_WRITE'), base=16)
+
 
 # Default install paths for the xc8 compiler
 XC8_DEFAULT_PATHS = [
@@ -94,14 +127,14 @@ XC8_DEFAULT_PATHS = [
     'c:/Program Files (x86)/Microchip/xc8'  # Windows (untested)
 ]
 
-# The name of the optional enviornment variable that holds the path to a
-# specfic xc8 compiler
+# The name of the optional environment variable that holds the path to a
+# specific xc8 compiler
 XC8_ENV_VARIABLE = 'XC8_TOOLCHAIN_ROOT'
 
 
 # This class handles searching the local filesystem for the xc8 compiler so
 # we can use its device files
-class XC8CompilerConfgurator:
+class XC8CompilerConfigurator:
 
     xc8_paths = {}      # Dict of 'ver':[path] of found xc8 toolchains
         # Also contains a 'default' key that points to single root path
@@ -121,7 +154,7 @@ class XC8CompilerConfgurator:
         
         # Assume its an iterable
         else:
-            # Add enviornment variable path to search path.
+            # Add environment variable path to search path.
             if XC8_ENV_VARIABLE in os.environ:
                 self.search_paths.append(os.getenv(XC8_ENV_VARIABLE))
                 # TODO: Skip other paths if this exists
@@ -167,7 +200,7 @@ class XC8CompilerConfgurator:
                         # 'vX.X' and contains a directory called 'pic'.
                         if test_subpath.name.startswith('v') and (test_subpath/'pic').is_dir():
 
-                            # Create version in xc8 list if doesnt exist
+                            # Create version in xc8 list if doesn't exist
                             if test_subpath.name not in self.xc8_paths:
                                 self.xc8_paths[test_subpath.name] = [test_subpath.name]
                             else:
@@ -182,7 +215,7 @@ class XC8CompilerConfgurator:
         devicefile = configparser.ConfigParser(strict=False)
         devicefile.read(devicefile_path)
 
-        device = XC8Device(chip_id)     # Create device object
+        device = PICDevice(chip_id)     # Create device object
         device.configure(devicefile)    # Configure based on devicefile
 
         return device       # Return device
