@@ -27,22 +27,18 @@ to be programmed. Currently, picchick supports two programmers:
 
 ## Installation
 
-<!-- Device files from Microchip are needed to extract interesting memory addresses for specific chips, e.g.
-the Configuration Words or Device Information Area. These device files are  -->
-
 ### Requirements
-- **`xc8` compiler installed to one of**:
-> (linux) /opt/microchip/xc8/                        \
-> (Windows) c:\Program Files (x86)\Microchip\xc8\        *\*Windows not currently Supported*
+- **`xc8` compiler**
+  - Available from [Microchip's website](https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers/downloads-documentation)
 
-- **python >= 3.10**
+- **`python` >= 3.10**
   - pyserial
 
 - **Compatible serial programmer**
   - See above for information about programmers.
 
 
-#### From PyPi
+### From PyPi
 `picchick` can be installed using pip:
 ```
 pip install picchick
@@ -50,15 +46,27 @@ pip install picchick
 picchick -h
 ```
 
-#### From Source
-`picchick` can also be run as a python module:
+### From Source
+Building the latest git version is as simple as pip installing the repo
+directory. The -e, --editable flag can be added so a `git pull` will update the
+`picchick` command automatically.
+```sh
+git clone https://github.com/Rex--/picchick.git
+cd picchick/
+pip install [-e] .
+picchick -h
+```
+
+Instead of installing the package, `picchick` can also be run as a python module:
 ```
 python -m picchick -h
 ```
-A wrapper script is also provided:
-```
+A wrapper script is provided that does this, providing a bit cleaner interface:
+```sh
+chmod +x picchick.sh
 ./picchick.sh -h
 ```
+NOTE: You may have to install pyserial for the above methods.
 
 ## Usage
 ```

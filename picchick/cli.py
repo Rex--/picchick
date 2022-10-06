@@ -172,7 +172,7 @@ def parseArgv():
 
         # Check if port exists
         if args.port is None:
-            print("Missing argument: -p port")
+            print("Missing argument: -P port")
             sys.exit(1)
         elif not os.path.exists(args.port):
             print(f"Could not find port: { args.port }")
