@@ -1,0 +1,252 @@
+= picchick Documentation
+:toc: left
+:icons: font
+:source-highlighter: highlight.js
+:link-xc8-compiler: https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers/downloads-documentation#XC8
+:link-picchick-docs: https://rex.mckinnon.ninja/picchick
+:link-picchick-github: https://github.com/rex--/picchick
+
+`picchick` is a command-line utility used for programming and debugging
+microcontrollers.
+
+IMPORTANT: This software is rapidly evolving while existing features are
+refined and new ones are added.
+
+== Installation
+At least version 3.10 of python is needed to use picchick. The only required
+python dependency is pyserial for communicating with serial devices. The xc8
+compiler must be installed in order to program and debug PIC devices.
+
+=== Requirements
+
+python::
+Python can be installed using your distro's package manager.
++
+NOTE: At least python 3.10 is required.
++
+Arch Linux
++
+[source, sh]
+----
+$ pacman -S python
+----
++
+Ubuntu/Debian +
++
+[source, sh]
+----
+$ apt-get install python
+----
+
+xc8::
+The xc8 compiler can be downloaded from
+{link-xc8-compiler}[Microchip's website].
+If you run arch linux, an AUR package is also available. Note that this package
+currently installs the out of date v2.36:
++
+[source, sh]
+----
+$ git clone https://aur.archlinux.org/microchip-mplabxc8-bin.git
+$ cd microchip-mplabxc8-bin/
+$ makepkg .
+$ pacman -S microchip-mplabxc8-bin-2.36-1-x86_64.pkg.tar
+----
+
+=== Install with pip
+The easiest way to install picchick is with `pip`. It should be installed in
+the user's python packages for convenience:
+
+[source, sh]
+$ pip install --user picchick
+
+This will install picchick and all of it's python dependencies. If your python
+installation is configured correctly, the `picchick` executable will be
+available on your PATH.
+
+
+=== Install from source
+For the latest version you might want to install the utility from the source
+repository. You might also want to run the utility without installing with pip.
+
+Install source package::
+After installing the requirements, the git repo should be cloned to the local
+filesystem. Then the package can be built and installed.
++
+TIP: The `-e, --editable` flag can be added to automatically update the utility
+after a `git pull` or any other code changes.
++
+
+[source, sh]
+----
+$ git clone https://github.org/Rex--/picchick.git
+$ cd picchick/
+$ pip install [-e] .
+----
++
+This will install picchick and all of it's python dependencies. If your python
+installation is configured correctly, the `picchick` executable will be
+available on your PATH.
+
+
+Run source package::
+The package can be run as a python module. The python requirements will have to
+be installed manually. It accepts the same arguments and
+flags as if ran as a command-line utility.
++
+[source, sh]
+----
+$ git clone https://github.org/Rex--/picchick.git
+$ cd picchick/
+$ pip install --user -r requirements.txt
+$ python -m picchick --help
+----
++
+A wrapper script in the root of the repository provides a bit cleaner interface:
++
+[source, sh]
+----
+$ chmod +x picchick.sh
+$ ./picchick.sh --help
+----
+
+
+== Usage
+`picchick` is meant to be used as a general programming and debugging device.
+You are able to read/write/erase device memory, display hex files, and flash
+these files onto the device. Picchick tries to keep a common interface across
+all programmers and devices, however some programmers don't implement the
+needed functionality for some commands. Some devices also do not support some
+actions.
+
+=== Programmers
+A programmer is the device that picchick interacts with to program the device.
+Currently only a few programmers are supported, but plans are to eventually
+support several common programmers.
+
+picstick:: The picstick is a ATtiny44A USB-stick that supports the PIC
+low-voltage ICSP interface.
+flipflop:: Flipflop is not a programmer in the traditional sense. It runs as
+the bootloader on some PIC micros, reading and writing the device's own memory.
+
+.Using a programmer
+====
+ $ picchick -c <programmer> -P <port> -B <baud>
+====
+
+
+=== Devices
+The chip that is being programmed is referred to as the device with the
+`-d, --device` flag. The chipID argument various between device types, more
+information can be found in the table below. Some devices require additional
+software to be installed.
+
+.Supported Devices
+|===
+|Microcontroller Type |Equivalent ChipID |Additional Requirements
+
+|PIC
+|`xc8-cc -mcpu=<chipID>`
+|{link-xc8-compiler}[XC8 Compiler^]
+|===
+
+.Specifying a device
+====
+ $ picchick -d <chipID>
+====
+
+
+=== Flashing
+The `-f, --flash` flag is used in coordination with the hexfile argument in order
+to flash it to the device. Some devices require you to erase the memory before
+reprogramming--this is not done automatically. It is the user's responsibility to
+include the `--erase` flag, but the erase is always done before write operations.
+
+.Flashing a hex file
+====
+ $ picchick -c <programmer> -P <port> -B <baud> -d <chipID> -f <hexfile>
+====
+
+.Erasing, Flashing, and Verifying a hex file
+====
+ $ picchick -c <programmer> -P <port> -B <baud> -d <chipID> -f --erase --verify <file.hex>
+====
+
+=== Reading
+Reading is currently done one memory address at a time. There is no support for
+reading multiple addresses, or more that one address at a time.
+
+=== Writing
+Writing can only be done one address at a time with the command line. The flash
+operation may sometimes write more than one address at a time if the device
+requires it(Some PICs require flash to be written 1 row at a time), but this
+cannot be achieved with the current ui.
+
+// TODO:
+// === Erasing
+// Devices can be erased.
+
+// === Verifying
+// NOTE: Verification is very slow.
+
+=== Displaying Hex Files
+There is a simple built-in utility to display hex files on the command line. If
+the device is specified and found, the hexfile will be decoded and displayed
+according to the specific device. The device flag can also be omitted, and the
+utility will decode them according to the base INHX32 spec. In either case, the
+data will be output in table format.
+
+.Default byte map
+====
+----
+$ picchick --map tests/blink.hex
+Using hexfile: tests/blink.hex
+  ADDR | x0  x1  x2  x3  x4  x5  x6  x7  x8  x9  xA  xB  xC  xD  xE  xF 
+-------+----------------------------------------------------------------
+    x0 | x80 x31 x02 x28 x87 x31 xFD x2F                                
+  xF20 |                                                         x87 x31
+  xF30 | xA7 x27 x87 x31 x59 x01 x0C x17 x00 x32 x00 x32 x00 x00 x59 x01
+  xF40 | x0C x13 x00 x32 x00 x32 x00 x00 x9A x2F x80 x31 x02 x28 x40 x01
+  xF50 | x98 x01 x99 x01 x9A x01 x9B x01 x9C x01 x9D x01 x59 x01 x90 x01
+  xF60 | x91 x01 x40 x01 x92 x01 x93 x01 x94 x01 x95 x01 x96 x01 x97 x01
+  xF70 | x59 x01 x8E x01 x8F x01 x7E x01 xB8 x01 xC3 x01 xCE x01 xD9 x01
+  xF80 | xE4 x01 x7C x01 xD0 x01 xDB x01 x7E x01 xB9 x01 xC4 x01 xCF x01
+  xF90 | xDA x01 xE5 x01 x7C x01 xD1 x01 xDC x01 xE7 x01 x7E x01 xBA x01
+  xFA0 | xC5 x01 xD0 x01 xDB x01 xE6 x01 x7C x01 xD2 x01 xDD x01 xE8 x01
+  xFB0 | xFF x30 x7E x01 xBB x00 xFF x30 xC6 x00 xFF x30 xD1 x00 xFF x30
+  xFC0 | xDC x00 xFF x30 xE7 x00 xFF x30 x7C x01 xD3 x00 xFF x30 xDE x00
+  xFD0 | xFF x30 xE9 x00 xFF x30 x7E x01 xBC x00 xFF x30 xC7 x00 xFF x30
+  xFE0 | xD2 x00 xFF x30 xDD x00 xFF x30 xE8 x00 xFF x30 x7C x01 xD4 x00
+  xFF0 | xFF x30 xDF x00 xFF x30 xEA x00 x08 x00 x40 x01 x87 x31 x97 x2F
+x10000 |                                                         xE8 x3F
+x10010 |         x9F x3F
+----
+====
+
+.PIC 2-byte words
+====
+----
+$ picchick -d 16lf19197 --map tests/blink.hex
+Found device: pic16lf19197
+Using hexfile: tests/blink.hex
+  ADDR |   x0    x1    x2    x3    x4    x5    x6    x7    x8    x9    xA    xB    xC    xD    xE    xF 
+-------+------------------------------------------------------------------------------------------------
+    x0 | x3180 x2802 x3187 x2FFD                                                                        
+  x790 |                                           x3187 x27A7 x3187 x0159 x170C x3200 x3200 x0000 x0159
+  x7A0 | x130C x3200 x3200 x0000 x2F9A x3180 x2802 x0140 x0198 x0199 x019A x019B x019C x019D x0159 x0190
+  x7B0 | x0191 x0140 x0192 x0193 x0194 x0195 x0196 x0197 x0159 x018E x018F x017E x01B8 x01C3 x01CE x01D9
+  x7C0 | x01E4 x017C x01D0 x01DB x017E x01B9 x01C4 x01CF x01DA x01E5 x017C x01D1 x01DC x01E7 x017E x01BA
+  x7D0 | x01C5 x01D0 x01DB x01E6 x017C x01D2 x01DD x01E8 x30FF x017E x00BB x30FF x00C6 x30FF x00D1 x30FF
+  x7E0 | x00DC x30FF x00E7 x30FF x017C x00D3 x30FF x00DE x30FF x00E9 x30FF x017E x00BC x30FF x00C7 x30FF
+  x7F0 | x00D2 x30FF x00DD x30FF x00E8 x30FF x017C x00D4 x30FF x00DF x30FF x00EA x0008 x0140 x3187 x2F97
+ x8007 = x3FE8
+ x8009 = x3F9F
+----
+====
+
+// TODO:
+// == Reference
+
+---
+[.text-center]
+[.big]#{link-picchick-github}[github] | {link-picchick-docs}[documentation]# +
+&copy; 2022 Rex McKinnon
