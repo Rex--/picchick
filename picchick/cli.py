@@ -25,74 +25,79 @@ flag arguments:
 \t'flash'\t\tuser flash area
 '''
 
+# Create our base ArgumentParser
 parser = argparse.ArgumentParser('picchick',
-    description=DESCRIPTION,
-    usage=USAGE,
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    epilog=EPILOG)
+description=DESCRIPTION,
+usage=USAGE,
+formatter_class=argparse.RawDescriptionHelpFormatter,
+# epilog=EPILOG,
+add_help=False)
 
-# Input hexfile
-parser.add_argument('hexfile',
-    nargs='?',
-    default=None,
-    help='path to a hexfile')
-
-# Device config flags
-parser.add_argument('-d', '--device',
-    metavar='mcu',
-    help='device to be programmed')
-
-# Programmer config flags
-parser.add_argument('-c',
+def parse_argv():
+    # Add programmer flag to parser
+    parser.add_argument('-c',
     metavar='programmer',
     dest='programmer',
     choices=programmer.registry.keys(),
     help='type of programmer')
-parser.add_argument('-P', '--port',
-    metavar='port',
-    help='programmer serial port')
-parser.add_argument('-B', '--baud',
-    type=int,
-    default=9600,
-    metavar='baud',
-    help='serial connection baudrate',)
 
-# Programmer action flags
-parser.add_argument('--read',
-    metavar='addr',
-    help='read word at specified address')
-parser.add_argument('--write',
-    nargs=2,
-    metavar=('addr', 'word'),
-    help='write word to specified address')
-parser.add_argument('--erase',
-    nargs='?',
-    const='all',
-    metavar='addr',
-    help='erase device or specified address')
-parser.add_argument('-f', '--flash',
-    action='store_true',
-    help='flash hexfile onto the device')
-parser.add_argument('--verify',
-    action='store_true',
-    help='verify device memory')
-parser.add_argument('--reset',
-    action='store_true',
-    help='reset device')
+    # Before adding any other options, get our programmer option if it's set.
+    # This is so we can add any programmer specific options to the parser.
+    programmer_arg = parser.parse_known_args()[0].programmer
 
-# Informational action flags
-parser.add_argument('--map',
-    action='store_true',
-    help='display the hexfile')
-parser.add_argument('--list-ports',
-    action='store_true',
-    help='list available serial ports')
-# parser.add_argument('--list-devices',
-#     action='store_true',
-#     help='list available device configurations')
+    # Base Options
+    parser.add_argument('hexfile',
+        nargs='?',
+        default=None,
+        help='path to a hexfile')
+    parser.add_argument('-d', '--device',
+        metavar='mcu',
+        help='device to be programmed')
+    parser.add_argument('-h', '--help',     # We wait until now to add -h so it
+        action='help',                      # will print all arguments (And show
+        help='print this message and exit') # up on the bottom of the list)
 
-def parseArgv():
-    args = parser.parse_args()
+    # Action flags
+    action_group = parser.add_argument_group('actions')
+    action_group.add_argument('--read',
+        nargs='+',
+        metavar=('addr', 'byte_len'),
+        help='read bytes from specified address')
+    action_group.add_argument('--write',
+        nargs=2,
+        metavar=('addr', 'word'),
+        help='write word to specified address')
+    action_group.add_argument('-f', '--flash',
+        action='store_true',
+        help='flash hexfile onto the device')
+    action_group.add_argument('--erase',
+        nargs='?',
+        const='all',
+        metavar='addr',
+        help='erase device or specified address')
+    action_group.add_argument('--verify',
+        action='store_true',
+        help='verify device memory')
+    # Informational Action flags
+    action_group.add_argument('--map',
+        action='store_true',
+        help='display the hexfile')
+    action_group.add_argument('--list-ports',
+        action='store_true',
+        help='list available serial ports')
+
+    # Programmer options
+    if programmer_arg is not None:
+        po_group = parser.add_argument_group('programmer options')
+        programmer.registry[programmer_arg].add_args(po_group)
+
+    # Now we parse arguments and return them
+    return parser.parse_args()
+
+
+def run():
+    # Parse arguments
+    args = parse_argv()
 
     # Requirements tree
 
@@ -104,14 +109,13 @@ def parseArgv():
     hexfile_reqd = both_reqd or args.map
     # Device object required
     device_reqd = hexfile_reqd
-    # list_ports flag doesn't require anyhting
+    # list_ports flag doesn't require anything
     nothing_reqd = (args.list_ports)
 
     # If we don't need to do anything, print help because
     # the user needs it
     if not hexfile_reqd and not programmer_reqd and not nothing_reqd:
-        parser.print_help()
-        sys.exit(0)
+        parser.error('at least one action argument is required')
 
 
     # Firstly, if we need the hexfile, check if it exists and load it.
@@ -178,7 +182,7 @@ def parseArgv():
             print(f"Could not find port: { args.port }")
             sys.exit(1)
         else:
-            dev = chosen_programmer(args.port, baud=args.baud)
+            dev = chosen_programmer(args)
             if not dev.connect():
                 print(f"ERROR: Failed to connect to device: { args.port } Exiting...")
                 sys.exit(1)
@@ -194,7 +198,6 @@ def parseArgv():
 
 
     if args.erase or args.flash or args.read or args.write or args.verify:
-        dev.start()
 
         if args.erase:
             if args.erase == 'all':
@@ -205,20 +208,26 @@ def parseArgv():
                 dev.erase(int(args.erase, base=16))
         
         if args.flash:
-            success_rows = 0
-            print(f"Starting write of flash rows...")
-            for address, row in hexobj.chunkFlash().items():
-                if dev.row(address, row):
-                    success_rows += 1
-            print(f"Successfully wrote {success_rows} rows ({int((success_rows*64*14)/8)} bytes)")
+            success_blocks = 0
+            print(f"Starting write of flash...")
+            for address, block in hexobj.chunkFlash().items():
+                byte_block = bytearray()
+                for word in block:
+                    byte_block.extend(word.to_bytes(2, 'big'))
+                if dev.write(address, byte_block):
+                    success_blocks += 1
+            print(f"Successfully wrote  bytes in {success_blocks} chunks.")
 
             for address, word in hexobj.config.items():
-                dev.word(address, word)
+                dev.write(address, programmer.INTBYTES(word))
         elif args.write:
             dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
         
         if args.read:
-            dev.read(int(args.read, base=16))
+            if (len(args.read) < 2):
+                args.read.extend('2')
+            read_resp = dev.read(int(args.read[0], base=16), int(args.read[1]))
+            print(read_resp.hex(' ', -2))
         
         if args.verify:
             print('Verifying memory...')
@@ -240,12 +249,6 @@ def parseArgv():
 
             if not fail:
                 print('Successfully verified memory')
-        dev.stop()
 
     if programmer_reqd:
-        if args.reset:
-            try:
-                dev.reset()
-            except NotImplementedError:
-                print(f"Programmer { args.programmer } does not support Resets!")
         dev.disconnect()

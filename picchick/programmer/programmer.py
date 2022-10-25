@@ -1,11 +1,13 @@
 import functools
+from argparse import ArgumentParser, Namespace
+from abc import abstractmethod
 import serial
 import serial.tools.list_ports
 
 # Simple programmer registry using decorators
 registry = {}
 
-def PicchickProgrammer(name):
+def register_programmer(name):
     def decoratedRegister(programmer):
         registry[name] = programmer
         return programmer
@@ -30,58 +32,57 @@ def wait_print(string):
 
 
 class ProgrammerInterface:
-    def __init__(self, port, baud=9600, timeout=2):
-        self._conn = serial.Serial(timeout=timeout)
-        self._port = self._conn.port = port
-        self._baud = self._conn.baudrate = baud
+    def __init__(self, arg_ns: Namespace):
+        self._args = arg_ns
 
+    @staticmethod
+    def add_args(parser: ArgumentParser) -> ArgumentParser:
+        '''Add additional command line arguments needed by programmer.'''
+        return parser
+
+    @abstractmethod
     def connect(self):
         # Connect to the programmer. This may only open a serial port, it might
         # also send commands and evaluate the response.
         raise NotImplementedError
 
+    @abstractmethod
     def disconnect(self):
-        # Disconnect from programmer.
+        ''' Disconnect from device and programmer(if applicable). '''
         raise NotImplementedError
 
-    def start(self):
-        # Start programming the device. This should verify that there is indeed
-        # a device attached to the programmer and prepare it for programming.
+    @abstractmethod
+    def write(self, address: int, data: bytes):
+        ''' Write data to address.'''
         raise NotImplementedError
 
-    def stop(self):
-        # Leave programming mode.
+    @abstractmethod
+    def read(self, address: int, length: int) -> bytes:
+        '''Read the given length from address.'''
         raise NotImplementedError
 
-    def word(self, address, word):
-        # Write a single word to the device. This is mostly used for
-        # configuration words and EEPROM.
-        raise NotImplementedError
-    
-    def row(self, address, row):
-        # Write a row (64 words) to the device. This is used to reprogram the
-        # device's flash.
-        raise NotImplementedError
-
-    def read(self, address):
-        # Read a single word from the device. This should be able to read the
-        # entire flash memory of the device.
-        raise NotImplementedError
-
+    @abstractmethod
     def erase(self, address):
-        # Erase a particular address. Some addresses are reserved for special
-        # cases.
+        '''Erase address.'''
         raise NotImplementedError
-    
-    def verify(self, memory):
-        # Verify's the connected device against the given memory. If all of the
-        # memory addresses are the same, it should return True, False otherwise.
-        # Memory is a dict of address: word
-        raise NotImplementedError
-    
-    def reset(self):
-        # Reset device. This will occur after any other operations specified.
-        raise NotImplementedError
+
+class SerialProgrammer(ProgrammerInterface):
+    def __init__(self, arg_ns, timeout=2):
+        self._args = arg_ns
+        self._conn = serial.Serial(timeout=timeout)
+        self._port = self._conn.port = arg_ns.port
+        self._baud = self._conn.baudrate = arg_ns.baud
+
+    @staticmethod
+    def add_args(parser):
+        parser.add_argument('-P', '--port',
+            metavar='port',
+            help='programmer serial port')
+        parser.add_argument('-B', '--baud',
+            type=int,
+            default=9600,
+            metavar='baud',
+            help='serial connection baudrate',)
 
 
 # Utlity functions

@@ -17,8 +17,8 @@ WORD = ASCII('WORD')
 READ = ASCII('READ')
 ERASE = ASCII('ERASE')
 
-@PicchickProgrammer('picstick')
-class PicstickProgrammer(ProgrammerInterface):
+@register_programmer('picstick')
+class PicstickProgrammer(SerialProgrammer):
 
     def connect(self):
         try:
@@ -31,23 +31,9 @@ class PicstickProgrammer(ProgrammerInterface):
         self._conn.write(GREETING + SEP)
         if self.__check_response(expected_resp=GREETING) is not True:
             print('device failed to respond')
-            self.disconnect()
+            self._conn.close()
             return False
         print("connected to programmer")
-        return True
-    
-    def disconnect(self):
-        wait_print('Disconnecting from programmer...')
-        self._conn.write(BYE + SEP)
-        resp = self.__check_response(expected_resp=BYE)
-        self._conn.close()
-        if resp is not True:
-            print('GOODBYE')
-            return False
-        print('goodbye')
-        return True
-
-    def start(self):
         wait_print('Entering programming mode...')
         self._conn.flushInput()
         self._conn.write(START + SEP)
@@ -58,16 +44,24 @@ class PicstickProgrammer(ProgrammerInterface):
         print('success')
         return True
     
-    def stop(self):
+    def disconnect(self):
         wait_print('Leaving programming mode...')
         # print(self._conn.read_all())
         self._conn.flushInput()
         self._conn.write(STOP + SEP)
         if self.__check_response() is not True:
             print('failed. Closing connection')
-            self.disconnect()
+            self._conn.close()
             return False
         print ('success')
+        wait_print('Disconnecting from programmer...')
+        self._conn.write(BYE + SEP)
+        resp = self.__check_response(expected_resp=BYE)
+        self._conn.close()
+        if resp is not True:
+            print('GOODBYE')
+            return False
+        print('goodbye')
         return True
     
     def word(self, address, word):
@@ -90,15 +84,19 @@ class PicstickProgrammer(ProgrammerInterface):
         print('\r', end='')
         return True
 
-    def read(self, address):
-        wait_print("Reading from address: 0x%.4X..." % (address))
-        self._conn.write(READ + SEP + INTBYTES(address))
-        if self.__check_response() is not True:
-            print('failed')
-            return False
-        resp = self._conn.read(size=2)
-        print('\r', end='')
-        return resp
+    def read(self, address, length):
+        wait_print("Reading %i words from address: 0x%.4X..." % (length, address))
+        read_resp = bytearray()
+        for word in range(length):
+            self._conn.write(READ + SEP + INTBYTES(address))
+            if self.__check_response() is not True:
+                print('failed')
+                return None
+            resp = self._conn.read(size=2)
+            read_resp.extend(resp)
+            address += 1
+        print('success')
+        return read_resp
     
     def erase(self, address):
         wait_print("Erasing Row: 0x%.4X..." % (address))
