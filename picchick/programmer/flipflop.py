@@ -19,6 +19,11 @@ ERASE = b'D'
 @register_programmer('flipflop')
 class FlipflopProgrammer(SerialProgrammer):
 
+    def __init__(self, args):
+        super().__init__(args)
+        self._reset = args.reset
+        self.page_size = args.pagesize
+
     @staticmethod
     def add_args(parser):
         # https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction
@@ -28,10 +33,11 @@ class FlipflopProgrammer(SerialProgrammer):
             action='store_true',
             default=False,
             help='reset device')
-
-    def __init__(self, arg_ns):
-        super().__init__(arg_ns)
-        self._reset = arg_ns.reset
+        parser.add_argument('--pagesize',
+            type=int,
+            default=1024,
+            metavar='int',
+            help='max size of write block (in bytes)')
 
     def connect(self):
         try:

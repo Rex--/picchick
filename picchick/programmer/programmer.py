@@ -32,13 +32,16 @@ def wait_print(string):
 
 
 class ProgrammerInterface:
-    def __init__(self, arg_ns: Namespace):
-        self._args = arg_ns
+
+    page_size = NotImplemented
+
+    def __init__(self, args):
+        pass
 
     @staticmethod
-    def add_args(parser: ArgumentParser) -> ArgumentParser:
+    def add_args(parser):
         '''Add additional command line arguments needed by programmer.'''
-        return parser
+        pass
 
     @abstractmethod
     def connect(self):
@@ -67,11 +70,10 @@ class ProgrammerInterface:
         raise NotImplementedError
 
 class SerialProgrammer(ProgrammerInterface):
-    def __init__(self, arg_ns, timeout=2):
-        self._args = arg_ns
+    def __init__(self, args, timeout=2):
         self._conn = serial.Serial(timeout=timeout)
-        self._port = self._conn.port = arg_ns.port
-        self._baud = self._conn.baudrate = arg_ns.baud
+        self._port = self._conn.port = args.port
+        self._baud = self._conn.baudrate = args.baud
 
     @staticmethod
     def add_args(parser):

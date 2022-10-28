@@ -1,0 +1,75 @@
+= picchick(1)
+:doctype: manpage
+:manmanual: Picchick Manual
+:link-picchick-github: https://github.com/Rex--/picchick
+:link-picchick-docs: https://rex.mckinnon.ninja/picchick
+
+ifeval::["{backend}" == "manpage"]
+== Name
+
+picchick - A utility for programming and debugging microcontrollers.
+endif::[]
+
+== Synopsis
+
+*picchick [-c programmer] [-d mcu] [--erase [addr]] [--read | --write | --flash] [--verify] [hexfile]* +
+*picchick [-d mcu] --map hexfile* +
+*picchick --list-devices*
+
+*picchick [-c programmer] -h/--help*
+
+
+== Options
+You can configure picchick through some options, the programmer flag is
+required for all actions that involve the programmer. Same for the device, so
+they are required for most commands.
+
+*-c programmer*:: The name of the programmer to use. Different programmers
+    require different options, see the programmer's options with
+    `picchick -c <programmer> -h`.
+
+*-d, --device mcu*:: The device being programmed.
+
+== Actions
+At least one action is required, else picchick would have nothing to do! Some
+actions cannot be used together, i.e. you cannot flash and write in the same
+command. Other actions can be changed, for instance you can erase a device,
+flash a hexfile, then verify the memory in one command.
+
+*--read addr length*:: Read _length_ words starting from _addr_. Length
+    defaults to 2 if omitted.
+
+*--write addr word*:: Write _word_ to _address_.
+
+*-f, --flash*:: Flash _hexfile_ to device.
+
+*--erase addr*:: Erase _addr_. Address can be a hex number, 'all' or 'flash'.
+
+*--verify*:: Verify written data. This can be used with either the write or
+    flash actions.
+
+*--map*:: Pretty print _hexfile_.
+
+*--list-ports*:: List available serial ports.
+
+== Programmers
+
+=== picstick
+picstick is used for PIC16F1 devices that implement the low-voltage ICSP
+interface.
+
+=== flipflop
+flipflop is a bootloader that runs on PIC16F1 devices with an EUSART.
+
+ifeval::["{backend}" == "manpage"]
+== Resources
+
+*Github:* {link-picchick-github}
+
+*Documentation:* {link-picchick-docs}
+
+== Copying
+Copyright (C) 2022 Rex McKinnon +
+This software is released under the University of Illinois/NCSA
+Open Source License. Check the LICENSE file for more details.
+endif::[]

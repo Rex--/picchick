@@ -20,6 +20,10 @@ ERASE = ASCII('ERASE')
 @register_programmer('picstick')
 class PicstickProgrammer(SerialProgrammer):
 
+    def __init__(self, args):
+        super().__init__(args)
+        self.page_size = 128
+
     def connect(self):
         try:
             self._conn.open()
@@ -63,25 +67,25 @@ class PicstickProgrammer(SerialProgrammer):
             return False
         print('goodbye')
         return True
-    
-    def word(self, address, word):
-        wait_print("Writing Word: 0x%.4X | 0x%.4X..." % (address, word))
-        self._conn.write(WORD + SEP + INTBYTES(address) + SEP + INTBYTES(word))
-        if self.__check_response() is not True:
-            print('failed')
+
+    def write(self, address, data):
+        wait_print(f"Writing {len(data)} bytes to {hex(address)}...")
+        if len(data) == 2:
+            # Write a single word
+            cmd = WORD + SEP + INTBYTES(address) + SEP + data
+        elif len(data) == self.page_size:
+            # Write a whole row
+            cmd = ROW + SEP + INTBYTES(address) + SEP + data
+        else:
+            # We should pad it or chunk to size.
+            # Return an error until thats implemented.
+            print(f'failed\nIncompatible data size: {len(data)}')
             return False
-        print('success')
-        return True
-    
-    def row(self, address, row):
-        wait_print("Writing Row: 0x%.4X..." % (address))
-        cmd = ROW + SEP + INTBYTES(address) + SEP + ROWBYTES(row)
-        # print(cmd)
         self._conn.write(cmd)
         if self.__check_response() is not True:
             print('failed')
             return False
-        print('\r', end='')
+        print('success')
         return True
 
     def read(self, address, length):
@@ -106,7 +110,6 @@ class PicstickProgrammer(SerialProgrammer):
             return False
         print('success')
         return True
-
 
     def __check_response(self, expected_resp=OK):
         resp = self._conn.read_until(expected=SEP)

@@ -19,6 +19,18 @@ import configparser
 import pathlib
 
 
+def get_device(dev_id):
+
+    # Check to see if dev_id is a path by seeing if we have access.
+    if os.access(dev_id, os.R_OK):
+        # Interpret the file as a custom device.
+        device = CustomDeviceConfigurator().readDeviceFile(dev_id)
+    else:
+        # We only support xc8 pic devices currently.
+        device = XC8CompilerConfigurator().readDeviceFile(dev_id)
+
+    return device
+
 
 # This class holds information about a specific range of memory. It holds
 # specific memory addresses and additional information about the type of memory.
@@ -38,10 +50,11 @@ class MemoryRange:
             self.start = start          # Start at given address (default 0)
             self.length = length        # Given length
 
-            self.end = start + length   # Calculate length of memory range(# of words)
+            # Calculate length of memory range(# of words)
+            self.end = start + length - 1
 
         # (2) End of range defined.
-        elif end:
+        elif end and not length:
             # Verify range does not end before it starts.
             if end >= start:
                 self.start = start  
@@ -49,33 +62,83 @@ class MemoryRange:
 
                 self.length = end - start + 1
         
+        elif end and length:
+            raise Exception
+
         # Blank memory range
         else:
             self.start = None
             self.end = None
             self.length = None
 
+    def __len__(self):
+        return self.length
+    
+    def __repr__(self):
+        ret = 'MemoryRange(0x%X - 0x%X)'
+        return ret % (self.start, self.end)
+
+# The following is an f-string template to use for device sub-classes that
+# would like to add their own features in the string representation.
+_DEVICE_TEMPLATE = "family='{self.family}', arch='{self.arch}', chip_id='{self.chip_id}', flash={self.flash}, config={self.config}, word_size={self.word_size}, row_size={self.row_size}"
+# __DEVICE_DEFAULT = "family='{self.family}', arch='{self.arch}', chip_id='{self.chip_id}', flash={self.flash}, config={self.config}, word_size={self.word_size}, row_size={self.row_size}, page_size={self.page_size}"
+
 class Device:
+    # Device Identifiers
     family = None   # Family of chip
     arch = None     # Chip architecture
     chip_id = None  # Chip identifier
+
+    # Memory Ranges
+    flash = None    # Memory range that spans User Flash
+    config = None   # Memory range that spans config words/fuses
+
+    # Memory Format
+    byte_order = 'big'   # The order of bytes in words. (big/little)
+    word_size = 1    # The length of a word in bytes.
+    row_size = 1     # The length of a row in words. A row is the smallest writeable block.
+    # page_size = None    # The length of a page in words. A page is the largest transmittable block.
 
     def __init__(self, chip_id):
         self.chip_id = chip_id.upper()
     
     def configure(self, *args, **kwargs):
         raise NotImplementedError
+    
+    def __repr__(self):
+        return eval('f"Device(%s)"' % _DEVICE_TEMPLATE)
+
+class CustomDevice(Device):
+
+    def configure(self, devicefile):
+
+        dev_sect = devicefile[self.chip_id]
+        self.family = dev_sect['FAMILY']
+        self.arch = dev_sect['ARCH']
+        self.byte_order = dev_sect['BYTE_ORDER']
+        self.word_size = int(dev_sect['WORD_SIZE'])
+        self.row_size = int(dev_sect['ROW_SIZE'])
+        self.flash = MemoryRange(length=int(dev_sect['FLASH'], base=16))
+        config_range = dev_sect['CONFIG']
+        self.config = MemoryRange(
+            start=int(config_range.split('-')[0], base=16),
+            end=int(config_range.split('-')[1], base=16)
+        )
+
+    def __repr__(self):
+        return eval('f"CustomDevice(%s)"' % _DEVICE_TEMPLATE)
+
 
 
 class PICDevice(Device):
+    # Fill in static information
     family = 'pic'
+    byte_order = 'big'
+    word_size = 2
+
     # Memory Ranges
-    flash = None    # Memory range that spans User Flash
-    config = None   # Memory range that spans Config Words
     user_id = None
     eeprom = None
-
-    blocksize = None
 
     def configure(self, devicefile):
         # Device arch
@@ -117,7 +180,10 @@ class PICDevice(Device):
 
         # (Blocksize) The size of a flash writing block
         #   'FLASH_WRITE' : <int>
-        self.blocksize = int(devicefile.get(self.chip_id, 'FLASH_WRITE'), base=16)
+        self.row_size = int(devicefile.get(self.chip_id, 'FLASH_WRITE'), base=16)
+
+    def __repr__(self):
+        return eval('f"PICDevice(%s)"' % _DEVICE_TEMPLATE)
 
 
 # Default install paths for the xc8 compiler
@@ -220,3 +286,18 @@ class XC8CompilerConfigurator:
 
         return device       # Return device
 
+class CustomDeviceConfigurator:
+    
+    def __init__(self):
+        pass
+
+    def readDeviceFile(self, path):
+
+        devicefile = configparser.ConfigParser()
+        devicefile.read(path)
+
+        mcu_str = devicefile.sections()[0]
+        device = CustomDevice(mcu_str)
+        device.configure(devicefile)
+        
+        return device

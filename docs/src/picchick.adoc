@@ -243,8 +243,8 @@ Using hexfile: tests/blink.hex
 ----
 ====
 
-// TODO:
 // == Reference
+include::picchick-man.adoc[leveloffset=+1]
 
 ---
 [.text-center]

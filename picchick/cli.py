@@ -9,13 +9,12 @@ from . import devices
 
 
 DESCRIPTION = '''\
-A utility to aid in programming PIC microcontrollers\
+A utility for programming and debugging microcontrollers.
 '''
 
 USAGE = '''\
-picchick [--read addr] [--write addr word] [--erase [addr]] [--verify] [-f] [--map] [--list-ports] [hexfile]
-       picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] [--verify] [--reset] -f <hexfile>
-       picchick [-d mcu] --map [hexfile]
+picchick [-d <mcu>] [-c <programmer>] [-r <addr> [len] | -w <addr> <word> | -f] [-e [addr]] [-v] [hexfile]
+       picchick [-d <mcu>] [--map | --list-ports] [hexfile]
 '''
 
 EPILOG = '''\
@@ -31,7 +30,7 @@ description=DESCRIPTION,
 usage=USAGE,
 formatter_class=argparse.RawDescriptionHelpFormatter,
 # epilog=EPILOG,
-add_help=False)
+add_help=False) # Note that we exclude the help flag
 
 def parse_argv():
     # Add programmer flag to parser
@@ -59,23 +58,23 @@ def parse_argv():
 
     # Action flags
     action_group = parser.add_argument_group('actions')
-    action_group.add_argument('--read',
+    action_group.add_argument('-r', '--read',
         nargs='+',
         metavar=('addr', 'byte_len'),
         help='read bytes from specified address')
-    action_group.add_argument('--write',
+    action_group.add_argument('-w','--write',
         nargs=2,
         metavar=('addr', 'word'),
         help='write word to specified address')
     action_group.add_argument('-f', '--flash',
         action='store_true',
         help='flash hexfile onto the device')
-    action_group.add_argument('--erase',
+    action_group.add_argument('-e', '--erase',
         nargs='?',
         const='all',
         metavar='addr',
         help='erase device or specified address')
-    action_group.add_argument('--verify',
+    action_group.add_argument('-v', '--verify',
         action='store_true',
         help='verify device memory')
     # Informational Action flags
@@ -102,9 +101,9 @@ def run():
     # Requirements tree
 
     # Flash flag requires both the hexfile and the programmer
-    both_reqd = (args.flash or args.verify)
+    both_reqd = (args.flash)
     # The read and erase flags only require the programmer connection
-    programmer_reqd = both_reqd or (args.read or args.erase or args.write)
+    programmer_reqd = both_reqd or (args.read or args.erase or args.write or args.verify)
     # The map flag only requires the hexfile to be present
     hexfile_reqd = both_reqd or args.map
     # Device object required
@@ -138,19 +137,21 @@ def run():
             xdevice = devices.Device('')
         else:
             try:
-                xdevice = devices.XC8CompilerConfigurator().readDeviceFile(args.device)
-                print(f"Found device: { xdevice.family }{ args.device }")
+                xdevice = devices.get_device(args.device)
+                print(f"Found device: { xdevice }")
             except:
-                print(f"WARNING: Could not find device: { args.device } -- Using defaults")
-                if not programmer_reqd:
-                    # We allow local operations with a skeleton device
-                    xdevice = devices.Device(args.device)
-                else:
-                    print(f"Could not find device: { args.device }")
-                    sys.exit(1)
+                # print(f"WARNING: Could not find device: { args.device } -- Using defaults")
+                # if not programmer_reqd:
+                #     # We allow local operations with a skeleton device
+                #     xdevice = devices.Device(args.device)
+                # else:
+                parser.error(f"Could not find device: { args.device }")
 
         print(f"Using hexfile: { args.hexfile }")
-        hexobj = hexfile.loadHexfile(args.hexfile, xdevice)
+        # Load up our hexfile and sort the words into device's memory regions
+        hexobj = hexfile.loadHexfile(args.hexfile)
+        hexobj.decode_words(word_size=xdevice.word_size, byte_order=xdevice.byte_order)
+        hexobj.sort_memory(xdevice)
 
     # We now have all the hexfile reqs, so take care of the actions
     # that only require the hexfile
@@ -173,18 +174,10 @@ def run():
             sys.exit(1)
         else:
             chosen_programmer = programmer.registry[args.programmer]
-
-        # Check if port exists
-        if args.port is None:
-            print("Missing argument: -P port")
-            sys.exit(1)
-        elif not os.path.exists(args.port):
-            print(f"Could not find port: { args.port }")
-            sys.exit(1)
-        else:
+            # Connect to programmer
             dev = chosen_programmer(args)
             if not dev.connect():
-                print(f"ERROR: Failed to connect to device: { args.port } Exiting...")
+                print(f"ERROR: Failed to connect to programmer: { args.programmer } Exiting...")
                 sys.exit(1)
 
 
@@ -193,8 +186,6 @@ def run():
     # Display information about ports if flag was included
     if args.list_ports:
         programmer.listPorts()
-        if args.port is not None:
-            print("INFO: --list-ports flag included with valid programmer")
 
 
     if args.erase or args.flash or args.read or args.write or args.verify:
@@ -208,47 +199,51 @@ def run():
                 dev.erase(int(args.erase, base=16))
         
         if args.flash:
+            # If were going to flash the hexfile, we split the flash region up into rows.
+            hexobj.chunk_flash(chunksize=xdevice.row_size)
+            # And further group the rows into pages
+            hexobj.page_rows(page_size=dev.page_size)
             success_blocks = 0
             print(f"Starting write of flash...")
-            for address, block in hexobj.chunkFlash().items():
-                byte_block = bytearray()
-                for word in block:
-                    byte_block.extend(word.to_bytes(2, 'big'))
-                if dev.write(address, byte_block):
+            for address, block in hexobj.pages.items():
+                if dev.write(address, block):
                     success_blocks += 1
             print(f"Successfully wrote  bytes in {success_blocks} chunks.")
 
             for address, word in hexobj.config.items():
                 dev.write(address, programmer.INTBYTES(word))
         elif args.write:
-            dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
+            dev.write(int(args.write[0], base=16), bytes.fromhex(args.write[1]))
+            # dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
         
         if args.read:
             if (len(args.read) < 2):
-                args.read.extend('2')
+                args.read.extend('1')
             read_resp = dev.read(int(args.read[0], base=16), int(args.read[1]))
             print(read_resp.hex(' ', -2))
         
         if args.verify:
             print('Verifying memory...')
             fail = False
+
+            # If we have loaded the hexfile verify against that
             if hexfile_reqd:
-                # If we have loaded the hexfile verify against that
-                for address, word in hexobj.memory.items():
-                    word_verify = dev.read(address)
-                    if word != int.from_bytes(word_verify, 'big'):
-                        print(f"ERROR: Verification failed at address: x{address:X}")
+                for address, page in hexobj.pages.items():
+                    page_verify = dev.read(address, len(page))
+                    if page_verify != page:
+                        print(f"ERROR: Verification failed on page: x{address:X}")
                         fail = True
                         break
+
+            # Else verify the written word
             elif args.write:
-                # Else verify the written word
-                word_verify = dev.read(int(args.write[0], base=16))
-                if int(args.write[1], base=16) != int.from_bytes(word_verify, 'big'):
+                word_verify = dev.read(int(args.write[0], base=16), 1)
+                if bytes.fromhex(args.write[1]) != word_verify:
                     fail = True
                     print(f"ERROR: Verification failed: x{int(args.write[0], base=16):X} - {int(args.write[1], base=16)} != {int.from_bytes(word_verify, 'little')}")
 
             if not fail:
-                print('Successfully verified memory')
+                print('Successfully verified memory [ SUCCESS ]')
 
     if programmer_reqd:
         dev.disconnect()

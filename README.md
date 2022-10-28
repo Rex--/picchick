@@ -1,6 +1,6 @@
 # picchick
-`piccchick` is a commandline utility written in python that interacts with
-various programmers in order to flash the memory of a microcontroller.
+`picchick` is a command-line utility used for programming and debugging
+microcontrollers.
 
 The function is the same as `avrdude`, i.e. to provide a way to flash a compiled
 .hex file onto a microcontroller. The typical development stack involving
@@ -16,8 +16,6 @@ at [rex.mckinnon.ninja/picchick](https://rex.mckinnon.ninja/picchick)
 ## Installation
 
 ### Requirements
-- **xc8 compiler**
-  - Available from [Microchip's website](https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers/downloads-documentation)
 - **python >= 3.10**
   - pyserial
 - **Compatible serial programmer**
@@ -55,34 +53,27 @@ NOTE: You may have to install pyserial for the above methods.
 ## Usage
 ```sh
 $ picchick -h
-usage: picchick [--read addr] [--write addr word] [--erase [addr]] [--verify] [-f] [--map] [--list-ports] [hexfile]
-       picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] [--verify] [--reset] -f <hexfile>
-       picchick [-d mcu] --map [hexfile]
+usage: picchick [-d <mcu>] [-c <programmer>] [-r <addr> [len] | -w <addr> <word> | -f] [-e [addr]] [-v] [hexfile]
+       picchick [-d <mcu>] [--map | --list-ports] [hexfile]
 
-A utility to aid in programming PIC microcontrollers
+A utility for programming and debugging microcontrollers.
 
 positional arguments:
   hexfile               path to a hexfile
 
 options:
-  -h, --help            show this help message and exit
-  -d mcu, --device mcu  device to be programmed
   -c programmer         type of programmer
-  -P port, --port port  programmer serial port
-  -B baud, --baud baud  serial connection baudrate
-  --read addr           read word at specified address
-  --write addr word     write word to specified address
-  --erase [addr]        erase device or specified address
-  -f, --flash           flash hexfile onto the device
-  --verify              verify device memory
-  --reset               reset device
-  --map                 display the hexfile
-  --list-ports          list available serial ports
+  -d mcu, --device mcu  device to be programmed
+  -h, --help            print this message and exit
 
-flag arguments:
-  addr:			device memory address in hexadecimal
-	'all'		all device memory areas
-	'flash'		user flash area
+actions:
+  -r, --read addr [len]   read bytes from specified address
+  -w, --write addr word   write word to specified address
+  -f, --flash             flash hexfile onto the device
+  -e, --erase [addr]      erase device or specified address
+  -v, --verify            verify device memory
+  --map                   display the hexfile
+  --list-ports            list available serial ports
 ```
 
 ### Examples
