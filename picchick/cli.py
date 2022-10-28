@@ -2,11 +2,14 @@
 import argparse
 import os.path
 import sys
+import importlib.metadata
 
 from . import hexfile
 from . import programmer
 from . import devices
 
+# Set version variable
+__version__ = importlib.metadata.version(__package__)
 
 DESCRIPTION = '''\
 A utility for programming and debugging microcontrollers.
@@ -52,6 +55,10 @@ def parse_argv():
     parser.add_argument('-d', '--device',
         metavar='mcu',
         help='device to be programmed')
+    parser.add_argument('--version',
+        action='version',
+        version=f'picchick v{__version__}',
+        help='print version number and exit')
     parser.add_argument('-h', '--help',     # We wait until now to add -h so it
         action='help',                      # will print all arguments (And show
         help='print this message and exit') # up on the bottom of the list)
