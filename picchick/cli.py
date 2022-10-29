@@ -57,7 +57,7 @@ def parse_argv():
         help='device to be programmed')
     parser.add_argument('--version',
         action='version',
-        version=f'picchick v{__version__}',
+        version=f'%(prog)s v{__version__}',
         help='print version number and exit')
     parser.add_argument('-h', '--help',     # We wait until now to add -h so it
         action='help',                      # will print all arguments (And show

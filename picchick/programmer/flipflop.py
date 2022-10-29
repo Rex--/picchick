@@ -37,7 +37,7 @@ class FlipflopProgrammer(SerialProgrammer):
             type=int,
             default=1024,
             metavar='int',
-            help='max size of write block (in bytes)')
+            help='max size of write block in bytes (default: %(default)s)')
 
     def connect(self):
         try:

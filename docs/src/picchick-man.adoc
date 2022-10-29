@@ -1,6 +1,7 @@
 = picchick(1)
 :doctype: manpage
 :manmanual: Picchick Manual
+:mansource: picchick v0.4.0
 :link-picchick-github: https://github.com/Rex--/picchick
 :link-picchick-docs: https://rex.mckinnon.ninja/picchick
 
@@ -12,46 +13,55 @@ endif::[]
 
 == Synopsis
 
-*picchick [-c programmer] [-d mcu] [--erase [addr]] [--read | --write | --flash] [--verify] [hexfile]* +
-*picchick [-d mcu] --map hexfile* +
+*picchick [-d <mcu>] [-c <programmer>] [-r <addr> [len] | -w <addr> <word> | -f] [-e [addr]] [-v] [hexfile]* +
+*picchick [-d <mcu>] --map <hexfile>* +
 *picchick --list-devices*
 
-*picchick [-c programmer] -h/--help*
+*picchick [-c <programmer>] -h/--help*
 
 
 == Options
-You can configure picchick through some options, the programmer flag is
-required for all actions that involve the programmer. Same for the device, so
-they are required for most commands.
+picchick accepts some common configuration options that dictate how to go about
+performing the action. Other options provide information about picchick itself.
+The programmer flag is required for all actions that involve a programmer.
+The device flag is required for all actions that involve a device.
 
-*-c programmer*:: The name of the programmer to use. Different programmers
+*-c <programmer>*:: The name of the programmer to use. Different programmers
     require different options, see the programmer's options with
     `picchick -c <programmer> -h`.
 
-*-d, --device mcu*:: The device being programmed.
+*-d, --device <mcu>*:: The device being programmed. The _mcu_ argument is either
+    a chip part number, or a path to a custom device file.
+
+*--version*:: Print the version number and exit.
+
+*-h, --help*:: Print usage information and a short help message. Can be
+    combined with `-c` to get help about a specific programmer.
 
 == Actions
 At least one action is required, else picchick would have nothing to do! Some
 actions cannot be used together, i.e. you cannot flash and write in the same
-command. Other actions can be changed, for instance you can erase a device,
+command. Other actions can be chained, for instance you can erase a device,
 flash a hexfile, then verify the memory in one command.
 
-*--read addr length*:: Read _length_ words starting from _addr_. Length
+*-r, --read <addr> [len]*:: Read _length_ words starting from _addr_. Length
     defaults to 2 if omitted.
 
-*--write addr word*:: Write _word_ to _address_.
+*-w, --write <addr> <word>*:: Write _word_ to _address_.
 
 *-f, --flash*:: Flash _hexfile_ to device.
 
-*--erase addr*:: Erase _addr_. Address can be a hex number, 'all' or 'flash'.
+*-e, --erase [addr]*:: Erase _addr_. Address can be a hex number, 'all' or 'flash'.
 
-*--verify*:: Verify written data. This can be used with either the write or
-    flash actions.
+*-v, --verify*:: Verify written data. This can be used with either the write or
+    flash actions, or by itself to verify against a hexfile.
 
-*--map*:: Pretty print _hexfile_.
+*--map*:: Pretty print _hexfile_, mapped to _device_ if the `-d` flag is given.
 
 *--list-ports*:: List available serial ports.
 
+
+ifeval::["{backend}" == "manpage"]
 == Programmers
 
 === picstick
@@ -61,7 +71,6 @@ interface.
 === flipflop
 flipflop is a bootloader that runs on PIC16F1 devices with an EUSART.
 
-ifeval::["{backend}" == "manpage"]
 == Resources
 
 *Github:* {link-picchick-github}

@@ -1,55 +1,59 @@
-= picchick Documentation
+= picchick documentation
 :toc: left
 :icons: font
 :source-highlighter: highlight.js
 :link-xc8-compiler: https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers/downloads-documentation#XC8
 :link-picchick-docs: https://rex.mckinnon.ninja/picchick
-:link-picchick-github: https://github.com/rex--/picchick
+:link-picchick-github: https://github.com/Rex--/picchick
+:link-picstick: https://github.com/Rex--/picstick
+:link-flipflop: https://github.com/Rex--/flipflop
 
 `picchick` is a command-line utility used for programming and debugging
 microcontrollers.
 
-IMPORTANT: This software is rapidly evolving while existing features are
+WARNING: This software is rapidly evolving while existing features are
 refined and new ones are added.
 
 == Installation
-At least version 3.10 of python is needed to use picchick. The only required
-python dependency is pyserial for communicating with serial devices. The xc8
-compiler must be installed in order to program and debug PIC devices.
+At least version 3.9 of python is needed to use picchick. The only required
+python dependency is pyserial for communicating with serial devices.
+
+The xc8 compiler can be installed in order to program and debug PIC devices.
+For other devices types, you must define a custom device file. This is
+currently the only way to program devices that aren't PICs.
 
 === Requirements
 
 python::
-Python can be installed using your distro's package manager.
-+
-NOTE: At least python 3.10 is required.
-+
-Arch Linux
-+
-[source, sh]
-----
-$ pacman -S python
-----
-+
-Ubuntu/Debian +
+Python can be installed using your distro's package manager. Picchick is
+developed using the latest version of python (currently 3.10), but has
+been tested lightly with python 3.92. +
+You might also have to install pip if you're planning to install the package.
 +
 [source, sh]
 ----
-$ apt-get install python
+# Arch Linux
+$ pacman -S python python-pip
+
+# Ubuntu/Debian
+$ apt-get install python3 python3-pip
 ----
 
-xc8::
-The xc8 compiler can be downloaded from
+
+xc8-cc _(optional)_::
+If you would like to proram PIC devices, you will need the device files
+provided with the xc8 compiler. The compiler can be downloaded from
 {link-xc8-compiler}[Microchip's website].
 If you run arch linux, an AUR package is also available. Note that this package
 currently installs the out of date v2.36:
 +
 [source, sh]
 ----
+# Arch Linux AUR
 $ git clone https://aur.archlinux.org/microchip-mplabxc8-bin.git
 $ cd microchip-mplabxc8-bin/
 $ makepkg .
-$ pacman -S microchip-mplabxc8-bin-2.36-1-x86_64.pkg.tar
+$ pacman -U microchip-mplabxc8-bin-2.36-1-x86_64.pkg.tar
 ----
 
 === Install with pip
@@ -58,10 +62,13 @@ the user's python packages for convenience:
 
 [source, sh]
 $ pip install --user picchick
+<...>
+$ picchick --help
 
 This will install picchick and all of it's python dependencies. If your python
 installation is configured correctly, the `picchick` executable will be
-available on your PATH.
+available on your $PATH. If you installed it to your user python packages, you
+can find the picchick bin in `~/.local/bin`
 
 
 === Install from source
@@ -70,7 +77,7 @@ repository. You might also want to run the utility without installing with pip.
 
 Install source package::
 After installing the requirements, the git repo should be cloned to the local
-filesystem. Then the package can be built and installed.
+filesystem. Then the package can be built and installed to your user packages.
 +
 TIP: The `-e, --editable` flag can be added to automatically update the utility
 after a `git pull` or any other code changes.
@@ -80,7 +87,9 @@ after a `git pull` or any other code changes.
 ----
 $ git clone https://github.org/Rex--/picchick.git
 $ cd picchick/
-$ pip install [-e] .
+$ pip install --user [-e] .
+<...>
+$ picchick --help
 ----
 +
 This will install picchick and all of it's python dependencies. If your python
@@ -114,45 +123,94 @@ $ ./picchick.sh --help
 `picchick` is meant to be used as a general programming and debugging device.
 You are able to read/write/erase device memory, display hex files, and flash
 these files onto the device. Picchick tries to keep a common interface across
-all programmers and devices, however some programmers don't implement the
-needed functionality for some commands. Some devices also do not support some
-actions.
+all programmers and devices, so only these basic operations are supported by
+everything. However, programmers are free to implement their own actions and
+options, so always check the help for a specific programmer.
 
 === Programmers
 A programmer is the device that picchick interacts with to program the device.
 Currently only a few programmers are supported, but plans are to eventually
 support several common programmers.
 
-picstick:: The picstick is a ATtiny44A USB-stick that supports the PIC
-low-voltage ICSP interface.
-flipflop:: Flipflop is not a programmer in the traditional sense. It runs as
-the bootloader on some PIC micros, reading and writing the device's own memory.
+Each programmer implements it's own connection options, for instance all serial
+programmers implement `-P <port>` and `-B <baudrate>` flags to configure the
+serial connection. Check each programmer's options by specifying the help flag
+with the programmer argument.
 
-.Using a programmer
+.Programmer Options
 ====
- $ picchick -c <programmer> -P <port> -B <baud>
+[source, sh]
+----
+$ picchick -c picstick --help
+<...>
+programmer options:
+  -P port, --port port  programmer serial port
+  -B baud, --baud baud  serial connection baudrate
+
+$ picchick -c picstick -P <port> -B <baud>
+----
 ====
+
+.Supported Programmers
+[cols='2,2,6,1']
+|===
+|Name |Target |Description |Link
+
+|`picstick`
+|PIC ICSP
+|The picstick is a ATtiny44A USB-stick that supports the PIC low-voltage ICSP
+interface.
+|{link-picstick}[Github]
+
+|`flipflop`
+|PIC
+|Flipflop runs as the bootloader on some PIC micros, reading and writing the
+device's own memory.
+|{link-flipflop}[Github]
+|===
 
 
 === Devices
 The chip that is being programmed is referred to as the device with the
-`-d, --device` flag. The chipID argument various between device types, more
-information can be found in the table below. Some devices require additional
+`-d, --device` flag. The `<mcu>` argument various between device types, more
+information can be found in Table 2 below. Some devices require additional
 software to be installed.
-
-.Supported Devices
-|===
-|Microcontroller Type |Equivalent ChipID |Additional Requirements
-
-|PIC
-|`xc8-cc -mcpu=<chipID>`
-|{link-xc8-compiler}[XC8 Compiler^]
-|===
 
 .Specifying a device
 ====
- $ picchick -d <chipID>
+ $ picchick -d <mcu>
 ====
+
+In addition to the supported devices, you can specify a custom device by
+passing a path to an ini device file as the argument to the `-d` option. An
+example device file is given below, all of the fields are required.
+
+.Custom Device Files
+====
+[source, sh]
+----
+$ cat 16lf19197.ini
+[16LF19197]
+FAMILY = PIC16
+ARCH = PIC14EX
+BYTE_ORDER = big
+WORD_SIZE = 2
+ROW_SIZE = 64
+FLASH = 8000
+CONFIG = 8007-800B
+$ picchick -d 16lf19197.ini
+----
+====
+
+.Supported Devices
+[cols='1,3,3']
+|===
+|Target |MCU Equivalent |Additional Requirements
+
+|PIC
+|`xc8-cc -mcpu=<mcu>`
+|{link-xc8-compiler}[XC8 Compiler^]
+|===
 
 
 === Flashing
@@ -163,27 +221,60 @@ include the `--erase` flag, but the erase is always done before write operations
 
 .Flashing a hex file
 ====
- $ picchick -c <programmer> -P <port> -B <baud> -d <chipID> -f <hexfile>
+ $ picchick -c <programmer> -d <mcu> -f <hexfile>
 ====
+
+The flash command can be chained with multiple actions, like in the following
+example where we erase a device, flash the hexfile to it, then verify the
+memory.
 
 .Erasing, Flashing, and Verifying a hex file
 ====
- $ picchick -c <programmer> -P <port> -B <baud> -d <chipID> -f --erase --verify <file.hex>
+ $ picchick -c <programmer> -d <mcu> -f -e -v <hexfile>
 ====
 
 === Reading
-Reading is currently done one memory address at a time. There is no support for
-reading multiple addresses, or more that one address at a time.
+Reading is handled differently by different programmers, however the interface
+is the same. The `-r, --read` action takes two argument -- a required address
+to read from `<addr>`, and an optional length `[len]`. The length is given in
+words which is based on the word_size of the device.
+
+.Reading from a device
+====
+[source, sh]
+----
+$ picchick -c <programmer> -d <mcu> -r <addr> [len]
+
+# Read a single word from 0x400
+$ picchick -c <programmer> -d <mcu> -r 400
+
+# Read a block of 1024 words from 0x400
+$ picchick -c <programmer> -d <mcu> -r 400 1024
+----
+====
 
 === Writing
 Writing can only be done one address at a time with the command line. The flash
 operation may sometimes write more than one address at a time if the device
 requires it(Some PICs require flash to be written 1 row at a time), but this
-cannot be achieved with the current ui.
+cannot be achieved with the current ui. Writing is currently used mostly for
+devices with EEPROM or writing configuration words.
 
-// TODO:
-// === Erasing
-// Devices can be erased.
+.Writing to a device
+====
+ $ picchick -c <programmer> -d <mcu> -w <addr> <word>
+====
+
+
+=== Erasing
+The `-e, --erase` flag takes an address argument to determine what to erase.
+Most devices have to be erased in blocks, in this case (according to the
+programmer) the block containing the address will be erased.
+
+.Erasing a device
+====
+ $ picchick -c <programmer> -d <mcu> -e <addr>
+====
 
 // === Verifying
 // NOTE: Verification is very slow.

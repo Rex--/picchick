@@ -1,0 +1,134 @@
+'\" t
+.\"     Title: picchick
+.\"    Author: [see the "AUTHOR(S)" section]
+.\" Generator: Asciidoctor 2.0.17
+.\"      Date: 2022-10-29
+.\"    Manual: Picchick Manual
+.\"    Source: picchick v0.4.0
+.\"  Language: English
+.\"
+.TH "PICCHICK" "1" "2022-10-29" "picchick v0.4.0" "Picchick Manual"
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.ss \n[.ss] 0
+.nh
+.ad l
+.de URL
+\fI\\$2\fP <\\$1>\\$3
+..
+.als MTO URL
+.if \n[.g] \{\
+.  mso www.tmac
+.  am URL
+.    ad l
+.  .
+.  am MTO
+.    ad l
+.  .
+.  LINKSTYLE blue R < >
+.\}
+.SH "NAME"
+picchick \- A utility for programming and debugging microcontrollers.
+.SH "SYNOPSIS"
+.sp
+\fBpicchick [\-d <mcu>] [\-c <programmer>] [\-r <addr> [len] | \-w <addr> <word> | \-f] [\-e [addr]] [\-v] [hexfile]\fP
+.br
+\fBpicchick [\-d <mcu>] \-\-map <hexfile>\fP
+.br
+\fBpicchick \-\-list\-devices\fP
+.sp
+\fBpicchick [\-c <programmer>] \-h/\-\-help\fP
+.SH "OPTIONS"
+.sp
+picchick accepts some common configuration options that dictate how to go about
+performing the action. Other options provide information about picchick itself.
+The programmer flag is required for all actions that involve a programmer.
+The device flag is required for all actions that involve a device.
+.sp
+\fB\-c <programmer>\fP
+.RS 4
+The name of the programmer to use. Different programmers
+require different options, see the programmer\(cqs options with
+\f(CRpicchick \-c <programmer> \-h\fP.
+.RE
+.sp
+\fB\-d, \-\-device <mcu>\fP
+.RS 4
+The device being programmed. The \fImcu\fP argument is either
+a chip part number, or a path to a custom device file.
+.RE
+.sp
+\fB\-\-version\fP
+.RS 4
+Print the version number and exit.
+.RE
+.sp
+\fB\-h, \-\-help\fP
+.RS 4
+Print usage information and a short help message. Can be
+combined with \f(CR\-c\fP to get help about a specific programmer.
+.RE
+.SH "ACTIONS"
+.sp
+At least one action is required, else picchick would have nothing to do! Some
+actions cannot be used together, i.e. you cannot flash and write in the same
+command. Other actions can be chained, for instance you can erase a device,
+flash a hexfile, then verify the memory in one command.
+.sp
+\fB\-r, \-\-read <addr> [len]\fP
+.RS 4
+Read \fIlength\fP words starting from \fIaddr\fP. Length
+defaults to 2 if omitted.
+.RE
+.sp
+\fB\-w, \-\-write <addr> <word>\fP
+.RS 4
+Write \fIword\fP to \fIaddress\fP.
+.RE
+.sp
+\fB\-f, \-\-flash\fP
+.RS 4
+Flash \fIhexfile\fP to device.
+.RE
+.sp
+\fB\-e, \-\-erase [addr]\fP
+.RS 4
+Erase \fIaddr\fP. Address can be a hex number, \*(Aqall\*(Aq or \*(Aqflash\*(Aq.
+.RE
+.sp
+\fB\-v, \-\-verify\fP
+.RS 4
+Verify written data. This can be used with either the write or
+flash actions, or by itself to verify against a hexfile.
+.RE
+.sp
+\fB\-\-map\fP
+.RS 4
+Pretty print \fIhexfile\fP, mapped to \fIdevice\fP if the \f(CR\-d\fP flag is given.
+.RE
+.sp
+\fB\-\-list\-ports\fP
+.RS 4
+List available serial ports.
+.RE
+.SH "PROGRAMMERS"
+.SS "picstick"
+.sp
+picstick is used for PIC16F1 devices that implement the low\-voltage ICSP
+interface.
+.SS "flipflop"
+.sp
+flipflop is a bootloader that runs on PIC16F1 devices with an EUSART.
+.SH "RESOURCES"
+.sp
+\fBGithub:\fP \c
+.URL "https://github.com/Rex\-\-/picchick" "" ""
+.sp
+\fBDocumentation:\fP \c
+.URL "https://rex.mckinnon.ninja/picchick" "" ""
+.SH "COPYING"
+.sp
+Copyright \(co 2022 Rex McKinnon
+.br
+This software is released under the University of Illinois/NCSA
+Open Source License. Check the LICENSE file for more details.

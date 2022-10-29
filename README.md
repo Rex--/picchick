@@ -3,11 +3,7 @@
 microcontrollers.
 
 The function is the same as `avrdude`, i.e. to provide a way to flash a compiled
-.hex file onto a microcontroller. The typical development stack involving
-picchick looks like:
-
-> Developing (nano)      >   Compiling (xc8-cc)    >    Flashing (picchick)
-
+.hex file onto a microcontroller.
 
 The latest documentation is available in the `docs/` folder, or hosted online
 at [rex.mckinnon.ninja/picchick](https://rex.mckinnon.ninja/picchick)
@@ -26,6 +22,7 @@ at [rex.mckinnon.ninja/picchick](https://rex.mckinnon.ninja/picchick)
 `picchick` can be installed using pip:
 ```sh
 $ pip install picchick
+$ picchick -h
 ```
 
 ### From Source
@@ -59,12 +56,13 @@ usage: picchick [-d <mcu>] [-c <programmer>] [-r <addr> [len] | -w <addr> <word>
 A utility for programming and debugging microcontrollers.
 
 positional arguments:
-  hexfile               path to a hexfile
+  hexfile                 path to a hexfile
 
 options:
-  -c programmer         type of programmer
-  -d mcu, --device mcu  device to be programmed
-  -h, --help            print this message and exit
+  -c programmer           type of programmer
+  -d mcu, --device mcu    device to be programmed
+  --version               print version number and exit
+  -h, --help              print this message and exit
 
 actions:
   -r, --read addr [len]   read bytes from specified address
@@ -74,14 +72,6 @@ actions:
   -v, --verify            verify device memory
   --map                   display the hexfile
   --list-ports            list available serial ports
-```
-
-### Examples
-The typical command to erase then flash a hexfile onto a device looks like:
-```sh
-$ picchick -d <mcu> -c <programmer> -P <port> -B <baud> [--erase] [--verify] -f <hexfile>
-# e.g. Flash blink.hex to a pic16lf19197 using a picstick
-$ picchick -c picstick -d 16lf19197 -P /dev/ttyACM0 -B 115200 --erase -f blink.hex
 ```
 
 
