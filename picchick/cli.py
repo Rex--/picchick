@@ -215,19 +215,22 @@ def run():
             for address, block in hexobj.pages.items():
                 if dev.write(address, block):
                     success_blocks += 1
-            print(f"Successfully wrote  bytes in {success_blocks} chunks.")
+            print(f"Successfully wrote {success_blocks*dev.page_size} bytes in {success_blocks} chunks.")
 
             for address, word in hexobj.config.items():
                 dev.write(address, programmer.INTBYTES(word))
         elif args.write:
-            dev.write(int(args.write[0], base=16), bytes.fromhex(args.write[1]))
+            dev.write(int(args.write[0], 0), int(args.write[1]).to_bytes(2, 'big'))
             # dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
         
         if args.read:
             if (len(args.read) < 2):
                 args.read.extend('1')
             read_resp = dev.read(int(args.read[0], base=16), int(args.read[1]))
-            print(read_resp.hex(' ', -2))
+            if read_resp is not None:
+                print(read_resp.hex(' ', -2))
+            else:
+                fail = True
         
         if args.verify:
             print('Verifying memory...')
