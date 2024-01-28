@@ -7,6 +7,7 @@
 :link-picchick-github: https://github.com/Rex--/picchick
 :link-picstick: https://github.com/Rex--/picstick
 :link-flipflop: https://github.com/Rex--/flipflop
+:link-arduino-icsp: https://github.com/Rex--/arduino-icsp
 
 `picchick` is a command-line utility used for programming and debugging
 microcontrollers.
@@ -167,6 +168,13 @@ interface.
 |Flipflop runs as the bootloader on some PIC micros, reading and writing the
 device's own memory.
 |{link-flipflop}[Github]
+
+|`arduino-icsp`
+|PIC
+|Arduino sketch that implements a programmer for PIC devices that use the low
+voltage In Circuit Serial Programming protocol.
+|{link-arduino-icsp}[Github]
+
 |===
 
 
@@ -340,4 +348,4 @@ include::picchick-man.adoc[leveloffset=+1]
 ---
 [.text-center]
 [.big]#{link-picchick-github}[github] | {link-picchick-docs}[documentation]# +
-&copy; 2022 Rex McKinnon
+&copy; 2022-2024 Rex McKinnon

@@ -1,7 +1,7 @@
 = picchick(1)
 :doctype: manpage
 :manmanual: Picchick Manual
-:mansource: picchick v0.4.0
+:mansource: picchick v0.4.1
 :link-picchick-github: https://github.com/Rex--/picchick
 :link-picchick-docs: https://rex.mckinnon.ninja/picchick
 
@@ -71,6 +71,9 @@ interface.
 === flipflop
 flipflop is a bootloader that runs on PIC16F1 devices with an EUSART.
 
+=== arduino-icsp
+Arduino powered low-voltage ICSP programmer for PICs.
+
 == Resources
 
 *Github:* {link-picchick-github}
@@ -78,7 +81,7 @@ flipflop is a bootloader that runs on PIC16F1 devices with an EUSART.
 *Documentation:* {link-picchick-docs}
 
 == Copying
-Copyright (C) 2022 Rex McKinnon +
+Copyright (C) 2022-2024 Rex McKinnon +
 This software is released under the University of Illinois/NCSA
 Open Source License. Check the LICENSE file for more details.
 endif::[]

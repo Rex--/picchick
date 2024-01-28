@@ -86,6 +86,6 @@ actions:
 
 ## Copying
 
-Copyright (C) 2022 Rex McKinnon \
+Copyright (C) 2022-2024 Rex McKinnon \
 This software is released under the University of Illinois/NCSA
 Open Source License. Check the LICENSE file for more details.
