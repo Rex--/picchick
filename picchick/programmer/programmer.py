@@ -18,6 +18,8 @@ def ASCII(string):
     return string.encode(encoding='ascii')
 
 def INTBYTES(number, len=2):
+    if number > 65535:
+        len = 3
     return number.to_bytes(len, 'big')
 
 def ROWBYTES(row):

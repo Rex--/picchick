@@ -16,7 +16,7 @@ A utility for programming and debugging microcontrollers.
 '''
 
 USAGE = '''\
-picchick [-d <mcu>] [-c <programmer>] [-r <addr> [len] | -w <addr> <word> | -f] [-e [addr]] [-v] [hexfile]
+picchick [-d <mcu>] [-c <programmer>] [-r <addr> [len] | -w <addr> <word> | -e [addr] | -f] [-v] [hexfile]
        picchick [-d <mcu>] [--map | --list-ports] [hexfile]
 '''
 
@@ -212,23 +212,31 @@ def run():
             hexobj.page_rows(page_size=dev.page_size)
             success_blocks = 0
             print(f"Starting write of flash...")
-            for address, block in hexobj.pages.items():
-                if dev.write(address, block):
+            # for address, block in hexobj.pages.items():
+            for address, word in hexobj.memory.items():
+                if dev.write(address, word.to_bytes(2, 'big')):
                     success_blocks += 1
-            print(f"Successfully wrote {success_blocks*dev.page_size} bytes in {success_blocks} chunks.")
+
+            print(f"Successfully wrote {success_blocks*2} bytes in {success_blocks} chunks.")
 
             for address, word in hexobj.config.items():
                 dev.write(address, programmer.INTBYTES(word))
         elif args.write:
-            dev.write(int(args.write[0], 0), int(args.write[1]).to_bytes(2, 'big'))
+            dev.write(int(args.write[0], 0), int(args.write[1], 0).to_bytes(2, 'big'))
             # dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
         
         if args.read:
             if (len(args.read) < 2):
                 args.read.extend('1')
-            read_resp = dev.read(int(args.read[0], base=16), int(args.read[1]))
+            read_resp = dev.read(int(args.read[0], base=0), int(args.read[1], 0))
             if read_resp is not None:
-                print(read_resp.hex(' ', -2))
+                readfile = hexfile.Hexfile()
+                readfile.flash = read_resp
+                readfile.word_size = 1
+                print(readfile)
+                # for addr, data in read_resp.items():
+                #     print(f"{hex(addr)}: {hex(data)}")
+                    # print(resp.hex(' ', 3))
             else:
                 fail = True
         

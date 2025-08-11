@@ -27,6 +27,7 @@ def get_device(dev_id):
         device = CustomDeviceConfigurator().readDeviceFile(dev_id)
     else:
         # We only support xc8 pic devices currently.
+        print('Looking for XC8 device...')
         device = XC8CompilerConfigurator().readDeviceFile(dev_id)
 
     return device
@@ -144,43 +145,50 @@ class PICDevice(Device):
         # Device arch
         #   'ARCH' : PIC12, PIC14, PIC16 etc.
         self.arch = devicefile.get(self.chip_id, 'ARCH')
+        print(self)
 
         # (Flash) memory range from addresses 0x0 to the flash_size-1
         #   'ROMSIZE' : length of flashsize stored as a string in hexadecimal
         #   'FLASHTYPE' : Type of flash
         self.flash = MemoryRange(length=int(devicefile.get(self.chip_id, 'ROMSIZE'), base=16))
-        self.flash.memtype = devicefile.get(self.chip_id, 'FLASHTYPE')
+        # self.flash.memtype = devicefile.get(self.chip_id, 'FLASHTYPE')
+        print(self)
 
         # (Config Word) memory range that spans the configuration word addresses
         #   'CONFIG' : Range of addresses stored as hexadecimal separated by a '-'
-        config_range = devicefile.get(self.chip_id, 'CONFIG')
-        self.config = MemoryRange(
-            start=int(config_range.split('-')[0], base=16),
-            end=int(config_range.split('-')[1], base=16)
-        )
-        self.config.memtype = 'config'
+        # config_range = devicefile.get(self.chip_id, 'CONFIG')
+        print(self)
+
+        # self.config = MemoryRange(
+        #     start=int(config_range.split('-')[0], base=16),
+        #     end=int(config_range.split('-')[1], base=16)
+        # )
+        # self.config.memtype = 'config'
+        print(self)
+
 
         # (User ID) Memory range that spans the user id region
         #   'IDLOC' : <start>-<end>
-        id_range = devicefile.get(self.chip_id, 'IDLOC').split('-')
-        self.user_id = MemoryRange(
-            start=int(id_range[0], base=16),
-            end=int(id_range[1], base=16)
-        )
-        self.user_id.memtype = 'user_id'
+        # id_range = devicefile.get(self.chip_id, 'IDLOC').split('-')
+        # self.user_id = MemoryRange(
+        #     start=int(id_range[0], base=16),
+        #     end=int(id_range[1], base=16)
+        # )
+        # self.user_id.memtype = 'user_id'
 
         # (EEPROM) Memory range that spans the eeprom flash region
         #   'EEPROM' : start-end
-        eeprom_range = devicefile.get(self.chip_id, 'EEPROM').split('-')
-        self.eeprom = MemoryRange(
-            start=int(eeprom_range[0], base=16),
-            end=int(eeprom_range[1], base=16)
-        )
-        self.eeprom.memtype = 'eeprom'
+        # eeprom_range = devicefile.get(self.chip_id, 'EEPROM').split('-')
+        # self.eeprom = MemoryRange(
+        #     start=int(eeprom_range[0], base=16),
+        #     end=int(eeprom_range[1], base=16)
+        # )
+        # self.eeprom.memtype = 'eeprom'
 
         # (Blocksize) The size of a flash writing block
         #   'FLASH_WRITE' : <int>
-        self.row_size = int(devicefile.get(self.chip_id, 'FLASH_WRITE'), base=16)
+        # self.row_size = int(devicefile.get(self.chip_id, 'FLASH_WRITE'), base=16)
+        self.row_size = 1
 
     def __repr__(self):
         return eval('f"PICDevice(%s)"' % _DEVICE_TEMPLATE)
@@ -231,8 +239,10 @@ class XC8CompilerConfigurator:
         # Find compilers using the given paths
         self._findCompilers()
 
+
         # Set default compiler to the latest version
         self.xc8_paths['default'] = self.xc8_paths[sorted(self.xc8_paths)[-1]][0]
+        print(self.xc8_paths)
     
     # Go through the various locations and find installed compilers
     def _findCompilers(self):
@@ -278,11 +288,15 @@ class XC8CompilerConfigurator:
         # Device files live at <toolchain_root>/pic/dat/ini/<chipID>.ini
         devicefile_path = self.xc8_paths['default'] / 'pic/dat/ini' / (chip_id.lower() + '.ini')
 
+        print(devicefile_path)
+
         devicefile = configparser.ConfigParser(strict=False)
         devicefile.read(devicefile_path)
 
         device = PICDevice(chip_id)     # Create device object
+        print(device)
         device.configure(devicefile)    # Configure based on devicefile
+        print(device)
 
         return device       # Return device
 
