@@ -160,15 +160,25 @@ class PicstickProgrammer(SerialProgrammer):
         return read_resp
     
     def erase(self, address):
+        erase_command = ICSP_ERASE_SECT
         if self.use_bulk_erase:
             wait_print("Bulk erasing device with address: 0x%X" % address)
-            self._conn.write(PICSTICK_PAYLOAD + ICSP_ERASE_BULK + PAYLOAD_NUMBER(address))
+            erase_command = ICSP_ERASE_BULK
         else:
             wait_print("Erasing section with address: 0x%X..." % (address))
-            self._conn.write(PICSTICK_PAYLOAD + ICSP_ERASE_SECT + PAYLOAD_NUMBER(address))
+
+        # Set PC to address that we want to erase (or section)
+        self._conn.write(PICSTICK_PAYLOAD + ICSP_ADDR_LOAD + PAYLOAD_NUMBER(address))
         if not self.__check_response():
             print('failed')
             return False
+        
+        # Send erase command
+        self._conn.write(PICSTICK_COMMAND + erase_command)
+        if not self.__check_response():
+            print('failed')
+            return False
+
         print('success')
         return True
 
