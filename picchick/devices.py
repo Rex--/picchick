@@ -97,6 +97,8 @@ class Device:
     byte_order = 'big'   # The order of bytes in words. (big/little)
     word_size = 1    # The length of a word in bytes.
     row_size = 1     # The length of a row in words. A row is the smallest writeable block.
+    address_div = 1  # Divisor of address locations in hexfile for actual device memory locations
+    address_inc = 1  # Increment address by this amount every word
     # page_size = None    # The length of a page in words. A page is the largest transmittable block.
 
     def __init__(self, chip_id):
@@ -135,6 +137,7 @@ class PICDevice(Device):
     family = 'pic'
     byte_order = 'big'
     word_size = 2
+    address_div = 2  # Addresses in hexfile are 2x that of actual memory locations
 
     # Memory Ranges
     user_id = None
@@ -172,12 +175,13 @@ class PICDevice(Device):
 
         # (EEPROM) Memory range that spans the eeprom flash region
         #   'EEPROM' : start-end
-        eeprom_range = devicefile.get(self.chip_id, 'EEPROM').split('-')
-        self.eeprom = MemoryRange(
-            start=int(eeprom_range[0], base=16),
-            end=int(eeprom_range[1], base=16)
-        )
-        self.eeprom.memtype = 'eeprom'
+        if devicefile.has_option(self.chip_id, 'EEPROM'):
+            eeprom_range = devicefile.get(self.chip_id, 'EEPROM').split('-')
+            self.eeprom = MemoryRange(
+                start=int(eeprom_range[0], base=16),
+                end=int(eeprom_range[1], base=16)
+            )
+            self.eeprom.memtype = 'eeprom'
 
         # (Blocksize) The size of a flash writing block
         #   'FLASH_WRITE' : <int>
@@ -190,7 +194,8 @@ class PIC18Device(Device):
     # Fill in static information
     family = 'pic'
     byte_order = 'little'
-    word_size = 1
+    word_size = 2
+    address_inc = 2  # Each instruction word spans two memory locations
 
     # Memory Ranges
     user_id = None

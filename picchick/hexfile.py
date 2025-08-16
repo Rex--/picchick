@@ -56,18 +56,18 @@ class Hexfile:
     page_size = None    # Programmer.page_size
 
     
-    def decode_words(self, word_size=1, byte_order='little', hex_byte_order='little'):
+    def decode_words(self, word_size=1, address_div=2, address_inc=1, byte_order='little', hex_byte_order='little'):
         words = {}
         high_address = 0
         for record in self.records:
             if record['offset_addr'] != 0:
-                low_address = record['offset_addr'] // word_size
+                low_address = record['offset_addr'] // address_div
             else:
                 low_address = 0
 
             if record['record_type'] == 4 and record['data_len'] == 2:
                 high_address = int.from_bytes(record['data'], 'big')
-                high_address = (high_address << 16) // word_size
+                high_address = (high_address << 16) // address_div
             elif record['record_type'] == 0:
                 word_start = 0
                 while word_start < (record['data_len']):
@@ -75,7 +75,7 @@ class Hexfile:
                     word = int.from_bytes(record['data'][word_start:word_start+word_size], hex_byte_order)
                     words[address] = word
                     word_start += word_size
-                    low_address += 1
+                    low_address += address_inc
 
         self.word_size = word_size
         self.byte_order = byte_order
