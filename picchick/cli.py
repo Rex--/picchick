@@ -215,9 +215,10 @@ def run():
             hexobj.page_rows(page_size=dev.page_size)
             success_blocks = 0
             print(f"Starting write of flash...")
-            # for address, block in hexobj.pages.items():
-            for address, word in hexobj.flash.items():
-                if dev.write(address, word.to_bytes(2, 'big')):
+            for address, block in hexobj.pages.items():
+                if dev.write(address, block):
+            # for address, word in hexobj.flash.items():
+                # if dev.write(address, word.to_bytes(2, 'big')):
                     success_blocks += 1
 
             print(f"Successfully wrote {success_blocks*2} bytes in {success_blocks} chunks.")

@@ -164,12 +164,18 @@ class PicstickProgrammer(SerialProgrammer):
                 print('failed')
                 return False
         
-        # Right now we're expecting data to only be a single word
+        # Write config words one at a time
         if address < 0x8000:
-            self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x02\x00' + data)
-            if not self.__check_response():
-                print('failed')
-                return False
+            for i in range(0, len(data), 2):
+                self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x02\x00' + data[i:i+2]) # Load data into latches
+                if not self.__check_response():
+                    print('failed')
+                    return False
+                if i+2 < len(data):
+                    self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06') # Increment address
+                    if not self.__check_response():
+                        print('failed')
+                        return False
         
         # Send begin programming command
         self._conn.write(PICSTICK_SHORT_COMMAND + b'\x08')
