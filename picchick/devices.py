@@ -80,7 +80,7 @@ class MemoryRange:
 
 # The following is an f-string template to use for device sub-classes that
 # would like to add their own features in the string representation.
-_DEVICE_TEMPLATE = "family='{self.family}', arch='{self.arch}', chip_id='{self.chip_id}', flash={self.flash}, config={self.config}, word_size={self.word_size}, row_size={self.row_size}"
+_DEVICE_TEMPLATE = "family='{self.family}', arch='{self.arch}', chip_id='{self.chip_id}', word_size={self.word_size}, row_size={self.row_size}, flash={self.flash}, config={self.config}"
 # __DEVICE_DEFAULT = "family='{self.family}', arch='{self.arch}', chip_id='{self.chip_id}', flash={self.flash}, config={self.config}, word_size={self.word_size}, row_size={self.row_size}, page_size={self.page_size}"
 
 class Device:
@@ -188,7 +188,7 @@ class PICDevice(Device):
         self.row_size = int(devicefile.get(self.chip_id, 'FLASH_WRITE'), base=16)
 
     def __repr__(self):
-        return eval('f"PICDevice(%s)"' % _DEVICE_TEMPLATE)
+        return eval('f"PICDevice(%s)"' % (_DEVICE_TEMPLATE + ', user_id={self.user_id}, eeprom={self.eeprom}'))
 
 class PIC18Device(Device):
     # Fill in static information
@@ -350,14 +350,10 @@ class XC8CompilerConfigurator:
 
         if chip_id.startswith('18'):
             device = PIC18Device(chip_id)   # Create PIC18 device
-            print(device)
         else:
             device = PICDevice(chip_id)     # Create PIC10/12/16 device
         
         device.configure(devicefile)    # Configure based on devicefile
-
-        # print(device)
-        # print(device)
 
         return device       # Return device
 
