@@ -185,7 +185,7 @@ def run():
         else:
             chosen_programmer = programmer.registry[args.programmer]
             # Connect to programmer
-            dev = chosen_programmer(args)
+            dev = chosen_programmer(args, xdevice)
             if not dev.connect():
                 print(f"ERROR: Failed to connect to programmer: { args.programmer } Exiting...")
                 sys.exit(1)
@@ -214,17 +214,28 @@ def run():
             # And further group the rows into pages
             hexobj.page_rows(page_size=dev.page_size)
             success_blocks = 0
+            success_chunks = 0
             print(f"Starting write of flash...")
-            for address, block in hexobj.pages.items():
-                if dev.write(address, block):
+            for address, block in hexobj.rows.items():
+                bytes_written = dev.write(address, block)
+                if bytes_written > 0:
             # for address, word in hexobj.flash.items():
                 # if dev.write(address, word.to_bytes(2, 'big')):
-                    success_blocks += 1
-
-            print(f"Successfully wrote {success_blocks*2} bytes in {success_blocks} chunks.")
-
-            for address, word in hexobj.config.items():
-                dev.write(address, programmer.INTBYTES(word))
+                    success_blocks += bytes_written
+                    success_chunks += 1
+                else:
+                    success_blocks *= -1
+                    break
+            if success_blocks > 0:
+                print(f"Successfully wrote {success_blocks} bytes in {success_chunks} chunks.")
+                print("Starting write of config words...")
+                for address, word in hexobj.config.items():
+                    dev.write(address, programmer.INTBYTES(word))
+                # for address, word in hexobj.user_id.items():
+                #     dev.write(address, programmer.INTBYTES(word))
+                print("Flashing successful!")
+            else:
+                print(f"Failed after writing {success_blocks * -1} bytes in {success_chunks} chunks.")
         elif args.write:
             dev.write(int(args.write[0], 0), int(args.write[1], 0).to_bytes(2, 'big'))
             # dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
@@ -234,13 +245,15 @@ def run():
                 args.read.extend('1')
             read_resp = dev.read(int(args.read[0], base=0), int(args.read[1], 0))
             if read_resp is not None:
-                # readfile = hexfile.Hexfile()
-                # readfile.flash = read_resp
-                # readfile.word_size = 1
-                # print(readfile)
-                for addr, data in read_resp.items():
-                    print(f"{hex(addr)}: {hex(data)}")
-                    # print(resp.hex(' ', 3))
+                if xdevice.family is not None:
+                    readfile = hexfile.Hexfile()
+                    readfile.flash = read_resp
+                    readfile.word_size = xdevice.word_size
+                    print(readfile)
+                else: # Print memory location in <addr>: <word> format
+                    for addr, data in read_resp.items():
+                        print(f"{hex(addr)}: {hex(data)}")
+                        # print(resp.hex(' ', 3))
             else:
                 fail = True
         
