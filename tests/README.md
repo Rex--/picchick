@@ -11,4 +11,5 @@ These files contain super basic programs that toggle an I/O pin.
 
 INI Data Files
 --------------
-These are device files provided by Microchip and distributed with the xc8 compiler.
+- `xc8-*.ini` - These are device files provided by Microchip and distributed with the xc8 compiler.
+- `custom-*.ini` - Custom device file examples.
