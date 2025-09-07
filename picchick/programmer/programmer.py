@@ -32,12 +32,17 @@ def ROWBYTES(row):
 def wait_print(string):
     print(string, end=' ', flush=True)
 
+# Ansi color coded words
+
+SUCCESS = '\x1b[92msuccess\x1b[0m'
+FAIL = '\x1b[31mfail\x1b[0m'
+
 
 class ProgrammerInterface:
 
     page_size = NotImplemented
 
-    def __init__(self, args):
+    def __init__(self, args, mcu=None):
         pass
 
     @staticmethod
@@ -47,8 +52,7 @@ class ProgrammerInterface:
 
     @abstractmethod
     def connect(self):
-        # Connect to the programmer. This may only open a serial port, it might
-        # also send commands and evaluate the response.
+        '''Connect to the programmer device and start programming session.'''
         raise NotImplementedError
 
     @abstractmethod
@@ -72,10 +76,11 @@ class ProgrammerInterface:
         raise NotImplementedError
 
 class SerialProgrammer(ProgrammerInterface):
-    def __init__(self, args, timeout=2):
+    def __init__(self, args, mcu=None, timeout=2):
         self._conn = serial.Serial(timeout=timeout)
         self._port = self._conn.port = args.port
         self._baud = self._conn.baudrate = args.baud
+        self._mcu = mcu
 
     @staticmethod
     def add_args(parser):
