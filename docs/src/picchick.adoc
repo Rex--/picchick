@@ -2,7 +2,6 @@
 :toc: left
 :icons: font
 :source-highlighter: highlight.js
-:link-xc8-compiler: https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers/downloads-documentation#XC8
 :link-mchip-dfu-repo: https://packs.download.microchip.com/
 :link-picchick-docs: https://rex.mckinnon.ninja/picchick
 :link-picchick-github: https://github.com/Rex--/picchick
@@ -10,8 +9,7 @@
 :link-flipflop: https://github.com/Rex--/flipflop
 :link-arduino-icsp: https://github.com/Rex--/arduino-icsp
 
-`picchick` is a command-line utility used for programming and debugging
-microcontrollers.
+`picchick` is a command-line utility used for programming PIC microcontrollers.
 
 WARNING: This software is rapidly evolving while existing features are
 refined and new ones are added.
@@ -112,61 +110,12 @@ $ ./picchick.sh --help
 
 
 == Usage
-`picchick` is meant to be used as a general programming and debugging device.
+`picchick` is meant to be used as a general programming utility.
 You are able to read/write/erase device memory, display hex files, and flash
 these files onto the device. Picchick tries to keep a common interface across
 all programmers and devices, so only these basic operations are supported by
 everything. However, programmers are free to implement their own actions and
 options, so always check the help for a specific programmer.
-
-=== Programmers
-A programmer is the device that picchick interacts with to program the device.
-Currently only a few programmers are supported, but plans are to eventually
-support several common programmers.
-
-Each programmer implements it's own connection options, for instance all serial
-programmers implement `-P <port>` and `-B <baudrate>` flags to configure the
-serial connection. Check each programmer's options by specifying the help flag
-with the programmer argument.
-
-.Programmer Options
-====
-[source, sh]
-----
-$ picchick -c picstick --help
-<...>
-programmer options:
-  -P port, --port port  programmer serial port
-  -B baud, --baud baud  serial connection baudrate
-
-$ picchick -c picstick -P <port> -B <baud>
-----
-====
-
-.Supported Programmers
-[cols='2,2,6,1']
-|===
-|Name |Target |Description |Link
-
-|`picstick`
-|PIC ICSP
-|The picstick is a ATtiny44A USB-stick that supports the PIC low-voltage ICSP
-interface.
-|{link-picstick}[Github]
-
-|`flipflop`
-|PIC
-|Flipflop runs as the bootloader on some PIC micros, reading and writing the
-device's own memory.
-|{link-flipflop}[Github]
-
-|`arduino-icsp`
-|PIC
-|Arduino sketch that implements a programmer for PIC devices that use the low
-voltage In Circuit Serial Programming protocol.
-|{link-arduino-icsp}[Github]
-
-|===
 
 
 === Devices
@@ -211,6 +160,57 @@ $ picchick -d 16lf19197.ini
 |===
 
 
+=== Programmers
+A programmer is the device that picchick interacts with to program the device.
+Currently only a few programmers are supported, but plans are to eventually
+support several common programmers.
+
+Each programmer implements it's own connection options, for instance all serial
+programmers implement `-P <port>` and `-B <baudrate>` flags to configure the
+serial connection. Check each programmer's options by specifying the help flag
+with the programmer argument.
+
+.Programmer Options
+====
+[source, sh]
+----
+$ picchick -c picstick --help
+<...>
+programmer options:
+  -P, --port port       programmer serial port
+  -B, --baud baud       serial connection baudrate
+  --bulk-erase          use bulk erase when erasing device
+
+$ picchick -c picstick -P <port> -B <baud>
+----
+====
+
+.Supported Programmers
+[cols='2,2,6,1']
+|===
+|Name |Target |Description |Link
+
+|`picstick`
+|PIC ICSP
+|The picstick is a ATtiny44A USB-stick that supports the PIC low-voltage ICSP
+interface.
+|{link-picstick}[Github]
+
+|`flipflop`
+|PIC
+|Flipflop runs as the bootloader on some PIC micros, reading and writing the
+device's own memory.
+|{link-flipflop}[Github]
+
+|`arduino-icsp`
+|PIC
+|Arduino sketch that implements a programmer for PIC devices that use the low
+voltage In Circuit Serial Programming protocol.
+|{link-arduino-icsp}[Github]
+
+|===
+
+
 === Flashing
 The `-f, --flash` flag is used in coordination with the hexfile argument in order
 to flash it to the device. Some devices require you to erase the memory before
@@ -235,7 +235,8 @@ memory.
 Reading is handled differently by different programmers, however the interface
 is the same. The `-r, --read` action takes two argument -- a required address
 to read from `<addr>`, and an optional length `[len]`. The length is given in
-words which is based on the word_size of the device.
+words which is based on the word_size of the device. Both arguments can be
+prefixed with `0x` to specify hexadecimal numbers.
 
 .Reading from a device
 ====
@@ -244,10 +245,10 @@ words which is based on the word_size of the device.
 $ picchick -c <programmer> -d <mcu> -r <addr> [len]
 
 # Read a single word from 0x400
-$ picchick -c <programmer> -d <mcu> -r 400
+$ picchick -c <programmer> -d <mcu> -r 0x400
 
 # Read a block of 1024 words from 0x400
-$ picchick -c <programmer> -d <mcu> -r 400 1024
+$ picchick -c <programmer> -d <mcu> -r 0x400 1024
 ----
 ====
 
@@ -260,18 +261,29 @@ devices with EEPROM or writing configuration words.
 
 .Writing to a device
 ====
+[source, sh]
+----
  $ picchick -c <programmer> -d <mcu> -w <addr> <word>
+
+ # Write 0xbeef to 0x400
+ $ picchick -c <programmer> -d <mcu> -w 0x400 0xbeef
+
+ # Write 42 to 0x400
+ $ picchick -c <programmer> -d <mcu> -w 0x400 42
+----
 ====
 
 
 === Erasing
 The `-e, --erase` flag takes an address argument to determine what to erase.
 Most devices have to be erased in blocks, in this case (according to the
-programmer) the block containing the address will be erased.
+programmer) the block containing the address will be erased. Some programmers
+(picstick) have a `--bulk-erase` flag that will bulk erase the device instead
+of block erasing.
 
 .Erasing a device
 ====
- $ picchick -c <programmer> -d <mcu> -e <addr>
+ $ picchick -c <programmer> -d <mcu> -e <addr> [--bulk-erase]
 ====
 
 // === Verifying

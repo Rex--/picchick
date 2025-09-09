@@ -13,7 +13,7 @@ from . import devices
 __version__ = importlib.metadata.version(__package__)
 
 DESCRIPTION = '''\
-A utility for programming and debugging microcontrollers.
+A utility for programming PIC microcontrollers.
 '''
 
 USAGE = '''\
@@ -21,19 +21,11 @@ picchick [-d <mcu>] [-c <programmer>] [-r <addr> [len] | -w <addr> <word> | -e [
        picchick [-d <mcu>] [--map | --list-ports] [hexfile]
 '''
 
-EPILOG = '''\
-flag arguments:
-  addr:\t\t\tdevice memory address in hexadecimal
-\t'all'\t\tall device memory areas
-\t'flash'\t\tuser flash area
-'''
-
 # Create our base ArgumentParser
 parser = argparse.ArgumentParser('picchick',
 description=DESCRIPTION,
 usage=USAGE,
 formatter_class=argparse.RawDescriptionHelpFormatter,
-# epilog=EPILOG,
 add_help=False) # Note that we exclude the help flag
 
 def parse_argv():

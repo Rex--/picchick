@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.20">
+<meta name="generator" content="Asciidoctor 2.0.22">
 <title>picchick documentation</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700">
 <style>
@@ -140,7 +140,7 @@ p a>code:hover{color:rgba(0,0,0,.9)}
 #content::before{content:none}
 #header>h1:first-child{color:rgba(0,0,0,.85);margin-top:2.25rem;margin-bottom:0}
 #header>h1:first-child+#toc{margin-top:8px;border-top:1px solid #dddddf}
-#header>h1:only-child,body.toc2 #header>h1:nth-last-child(2){border-bottom:1px solid #dddddf;padding-bottom:8px}
+#header>h1:only-child{border-bottom:1px solid #dddddf;padding-bottom:8px}
 #header .details{border-bottom:1px solid #dddddf;line-height:1.45;padding-top:.25em;padding-bottom:.25em;padding-left:.25em;color:rgba(0,0,0,.6);display:flex;flex-flow:row wrap}
 #header .details span:first-child{margin-left:-.125em}
 #header .details span.email a{color:rgba(0,0,0,.85)}
@@ -162,6 +162,7 @@ p a>code:hover{color:rgba(0,0,0,.9)}
 #toctitle{color:#7a2518;font-size:1.2em}
 @media screen and (min-width:768px){#toctitle{font-size:1.375em}
 body.toc2{padding-left:15em;padding-right:0}
+body.toc2 #header>h1:nth-last-child(2){border-bottom:1px solid #dddddf;padding-bottom:8px}
 #toc.toc2{margin-top:0!important;background:#f8f8f7;position:fixed;width:15em;left:0;top:0;border-right:1px solid #e7e7e9;border-top-width:0!important;border-bottom-width:0!important;z-index:1000;padding:1.25em 1em;height:100%;overflow:auto}
 #toc.toc2 #toctitle{margin-top:0;margin-bottom:.8rem;font-size:1.2em}
 #toc.toc2>ul{font-size:.9em;margin-bottom:0}
@@ -327,7 +328,7 @@ a.image{text-decoration:none;display:inline-block}
 a.image object{pointer-events:none}
 sup.footnote,sup.footnoteref{font-size:.875em;position:static;vertical-align:super}
 sup.footnote a,sup.footnoteref a{text-decoration:none}
-sup.footnote a:active,sup.footnoteref a:active{text-decoration:underline}
+sup.footnote a:active,sup.footnoteref a:active,#footnotes .footnote a:first-of-type:active{text-decoration:underline}
 #footnotes{padding-top:.75em;padding-bottom:.75em;margin-bottom:.625em}
 #footnotes hr{width:20%;min-width:6.25em;margin:-.25em 0 .75em;border-width:1px 0 0}
 #footnotes .footnote{padding:0 .375em 0 .225em;line-height:1.3334;font-size:.875em;margin-left:1.2em;margin-bottom:.2em}
@@ -450,8 +451,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </li>
 <li><a href="#_usage">Usage</a>
 <ul class="sectlevel2">
-<li><a href="#_programmers">Programmers</a></li>
 <li><a href="#_devices">Devices</a></li>
+<li><a href="#_programmers">Programmers</a></li>
 <li><a href="#_flashing">Flashing</a></li>
 <li><a href="#_reading">Reading</a></li>
 <li><a href="#_writing">Writing</a></li>
@@ -473,8 +474,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
-<p><code>picchick</code> is a command-line utility used for programming and debugging
-microcontrollers.</p>
+<p><code>picchick</code> is a command-line utility used for programming PIC microcontrollers.</p>
 </div>
 <div class="admonitionblock warning">
 <table>
@@ -495,13 +495,8 @@ refined and new ones are added.
 <h2 id="_installation">Installation</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>At least version 3.9 of python is needed to use picchick. The only required
+<p>At least version 3.10 of python is needed to use picchick. The only required
 python dependency is pyserial for communicating with serial devices.</p>
-</div>
-<div class="paragraph">
-<p>The xc8 compiler can be installed in order to program and debug PIC devices.
-For other devices types, you must define a custom device file. This is
-currently the only way to program devices that aren&#8217;t PICs.</p>
 </div>
 <div class="sect2">
 <h3 id="_requirements">Requirements</h3>
@@ -510,8 +505,7 @@ currently the only way to program devices that aren&#8217;t PICs.</p>
 <dt class="hdlist1">python</dt>
 <dd>
 <p>Python can be installed using your distro&#8217;s package manager. Picchick is
-developed using the latest version of python (currently 3.10), but has
-been tested lightly with python 3.92.<br>
+developed using the latest version of python (currently 3.13).<br>
 You might also have to install pip if you&#8217;re planning to install the package.</p>
 <div class="listingblock">
 <div class="content">
@@ -523,22 +517,15 @@ $ apt-get install python3 python3-pip</code></pre>
 </div>
 </div>
 </dd>
-<dt class="hdlist1">xc8-cc <em>(optional)</em></dt>
+<dt class="hdlist1">Microchip Device Family Packs <em>(optional)</em></dt>
 <dd>
-<p>If you would like to proram PIC devices, you will need the device files
-provided with the xc8 compiler. The compiler can be downloaded from
-<a href="https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers/downloads-documentation#XC8">Microchip&#8217;s website</a>.
-If you run arch linux, an AUR package is also available. Note that this package
-currently installs the out of date v2.36:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-sh hljs" data-lang="sh"># Arch Linux AUR
-$ git clone https://aur.archlinux.org/microchip-mplabxc8-bin.git
-$ cd microchip-mplabxc8-bin/
-$ makepkg .
-$ pacman -U microchip-mplabxc8-bin-2.36-1-x86_64.pkg.tar</code></pre>
-</div>
-</div>
+<p>Microchip provides device configuration files via Device Family Packs (DFPs).
+Picchick comes bundled with PIC10, PIC12, PIC16, and PIC18 device files.
+However, in certain circumstances these could be outdated or not contain a
+device. In these cases, you should download the needed DFP from the
+<a href="https://packs.download.microchip.com/">Microchip Packs Reposity</a> and install it in
+<code>~/.mchp_packs</code> or tell picchick where it is located with the <code>MCHP_PACKS</code>
+enviornment variable.</p>
 </dd>
 </dl>
 </div>
@@ -635,12 +622,74 @@ $ ./picchick.sh --help</code></pre>
 <h2 id="_usage">Usage</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p><code>picchick</code> is meant to be used as a general programming and debugging device.
+<p><code>picchick</code> is meant to be used as a general programming utility.
 You are able to read/write/erase device memory, display hex files, and flash
 these files onto the device. Picchick tries to keep a common interface across
 all programmers and devices, so only these basic operations are supported by
 everything. However, programmers are free to implement their own actions and
 options, so always check the help for a specific programmer.</p>
+</div>
+<div class="sect2">
+<h3 id="_devices">Devices</h3>
+<div class="paragraph">
+<p>The chip that is being programmed is referred to as the device with the
+<code>-d, --device</code> flag. The <code>&lt;mcu&gt;</code> argument various between device types, more
+information can be found in Table 2 below. Some devices require additional
+software to be installed.</p>
+</div>
+<div class="exampleblock">
+<div class="title">Example 1. Specifying a device</div>
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>$ picchick -d &lt;mcu&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>In addition to the supported devices, you can specify a custom device by
+passing a path to an ini device file as the argument to the <code>-d</code> option. An
+example device file is given below, all of the fields are required.</p>
+</div>
+<div class="exampleblock">
+<div class="title">Example 2. Custom Device Files</div>
+<div class="content">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-sh hljs" data-lang="sh">$ cat 16lf19197.ini
+[16LF19197]
+FAMILY = PIC16
+ARCH = PIC14EX
+BYTE_ORDER = big
+WORD_SIZE = 2
+ROW_SIZE = 64
+FLASH = 8000
+CONFIG = 8007-800B
+$ picchick -d 16lf19197.ini</code></pre>
+</div>
+</div>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Supported Devices</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Target</th>
+<th class="tableblock halign-left valign-top">Compiler Flag Equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PIC</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>xc8-cc -mcpu=&lt;mcu&gt;</code></p></td>
+</tr>
+</tbody>
+</table>
 </div>
 <div class="sect2">
 <h3 id="_programmers">Programmers</h3>
@@ -656,15 +705,16 @@ serial connection. Check each programmer&#8217;s options by specifying the help 
 with the programmer argument.</p>
 </div>
 <div class="exampleblock">
-<div class="title">Example 1. Programmer Options</div>
+<div class="title">Example 3. Programmer Options</div>
 <div class="content">
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-sh hljs" data-lang="sh">$ picchick -c picstick --help
 &lt;...&gt;
 programmer options:
-  -P port, --port port  programmer serial port
-  -B baud, --baud baud  serial connection baudrate
+  -P, --port port       programmer serial port
+  -B, --baud baud       serial connection baudrate
+  --bulk-erase          use bulk erase when erasing device
 
 $ picchick -c picstick -P &lt;port&gt; -B &lt;baud&gt;</code></pre>
 </div>
@@ -672,7 +722,7 @@ $ picchick -c picstick -P &lt;port&gt; -B &lt;baud&gt;</code></pre>
 </div>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 1. Supported Programmers</caption>
+<caption class="title">Table 2. Supported Programmers</caption>
 <colgroup>
 <col style="width: 18.1818%;">
 <col style="width: 18.1818%;">
@@ -708,71 +758,6 @@ device&#8217;s own memory.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Arduino sketch that implements a programmer for PIC devices that use the low
 voltage In Circuit Serial Programming protocol.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/Rex--/arduino-icsp">Github</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="sect2">
-<h3 id="_devices">Devices</h3>
-<div class="paragraph">
-<p>The chip that is being programmed is referred to as the device with the
-<code>-d, --device</code> flag. The <code>&lt;mcu&gt;</code> argument various between device types, more
-information can be found in Table 2 below. Some devices require additional
-software to be installed.</p>
-</div>
-<div class="exampleblock">
-<div class="title">Example 2. Specifying a device</div>
-<div class="content">
-<div class="literalblock">
-<div class="content">
-<pre>$ picchick -d &lt;mcu&gt;</pre>
-</div>
-</div>
-</div>
-</div>
-<div class="paragraph">
-<p>In addition to the supported devices, you can specify a custom device by
-passing a path to an ini device file as the argument to the <code>-d</code> option. An
-example device file is given below, all of the fields are required.</p>
-</div>
-<div class="exampleblock">
-<div class="title">Example 3. Custom Device Files</div>
-<div class="content">
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-sh hljs" data-lang="sh">$ cat 16lf19197.ini
-[16LF19197]
-FAMILY = PIC16
-ARCH = PIC14EX
-BYTE_ORDER = big
-WORD_SIZE = 2
-ROW_SIZE = 64
-FLASH = 8000
-CONFIG = 8007-800B
-$ picchick -d 16lf19197.ini</code></pre>
-</div>
-</div>
-</div>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 2. Supported Devices</caption>
-<colgroup>
-<col style="width: 14.2857%;">
-<col style="width: 42.8571%;">
-<col style="width: 42.8572%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Target</th>
-<th class="tableblock halign-left valign-top">MCU Equivalent</th>
-<th class="tableblock halign-left valign-top">Additional Requirements</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">PIC</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>xc8-cc -mcpu=&lt;mcu&gt;</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers/downloads-documentation#XC8" target="_blank" rel="noopener">XC8 Compiler</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -817,7 +802,8 @@ memory.</p>
 <p>Reading is handled differently by different programmers, however the interface
 is the same. The <code>-r, --read</code> action takes two argument&#8201;&#8212;&#8201;a required address
 to read from <code>&lt;addr&gt;</code>, and an optional length <code>[len]</code>. The length is given in
-words which is based on the word_size of the device.</p>
+words which is based on the word_size of the device. Both arguments can be
+prefixed with <code>0x</code> to specify hexadecimal numbers.</p>
 </div>
 <div class="exampleblock">
 <div class="title">Example 6. Reading from a device</div>
@@ -827,10 +813,10 @@ words which is based on the word_size of the device.</p>
 <pre class="highlightjs highlight"><code class="language-sh hljs" data-lang="sh">$ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -r &lt;addr&gt; [len]
 
 # Read a single word from 0x400
-$ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -r 400
+$ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -r 0x400
 
 # Read a block of 1024 words from 0x400
-$ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -r 400 1024</code></pre>
+$ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -r 0x400 1024</code></pre>
 </div>
 </div>
 </div>
@@ -848,9 +834,15 @@ devices with EEPROM or writing configuration words.</p>
 <div class="exampleblock">
 <div class="title">Example 7. Writing to a device</div>
 <div class="content">
-<div class="literalblock">
+<div class="listingblock">
 <div class="content">
-<pre>$ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -w &lt;addr&gt; &lt;word&gt;</pre>
+<pre class="highlightjs highlight"><code class="language-sh hljs" data-lang="sh"> $ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -w &lt;addr&gt; &lt;word&gt;
+
+ # Write 0xbeef to 0x400
+ $ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -w 0x400 0xbeef
+
+ # Write 42 to 0x400
+ $ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -w 0x400 42</code></pre>
 </div>
 </div>
 </div>
@@ -861,14 +853,16 @@ devices with EEPROM or writing configuration words.</p>
 <div class="paragraph">
 <p>The <code>-e, --erase</code> flag takes an address argument to determine what to erase.
 Most devices have to be erased in blocks, in this case (according to the
-programmer) the block containing the address will be erased.</p>
+programmer) the block containing the address will be erased. Some programmers
+(picstick) have a <code>--bulk-erase</code> flag that will bulk erase the device instead
+of block erasing.</p>
 </div>
 <div class="exampleblock">
 <div class="title">Example 8. Erasing a device</div>
 <div class="content">
 <div class="literalblock">
 <div class="content">
-<pre>$ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -e &lt;addr&gt;</pre>
+<pre>$ picchick -c &lt;programmer&gt; -d &lt;mcu&gt; -e &lt;addr&gt; [--bulk-erase]</pre>
 </div>
 </div>
 </div>
@@ -1032,7 +1026,7 @@ flash actions, or by itself to verify against a hexfile.</p>
 <hr>
 <div class="paragraph text-center">
 <p><span class="big"><a href="https://github.com/Rex--/picchick">github</a> | <a href="https://rex.mckinnon.ninja/picchick">documentation</a></span><br>
-&copy; 2022-2024 Rex McKinnon</p>
+&copy; 2022-2025 Rex McKinnon</p>
 </div>
 </div>
 </div>
@@ -1040,7 +1034,7 @@ flash actions, or by itself to verify against a hexfile.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-01-27 20:20:29 -0800
+Last updated 2025-09-08 23:50:10 -0700
 </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.3/highlight.min.js"></script>

@@ -332,7 +332,7 @@ class MCHPDevicePackConfigurator:
             return False
     
     def __configureDeviceFromFile(self, devicefile_path):
-        print(devicefile_path)
+        # print(devicefile_path)
         devicefile = configparser.ConfigParser(strict=False)
         devicefile.read(devicefile_path)
 

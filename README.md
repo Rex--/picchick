@@ -1,6 +1,5 @@
 # picchick
-`picchick` is a command-line utility used for programming and debugging
-microcontrollers.
+`picchick` is a command-line utility used for programming PIC microcontrollers.
 
 The function is the same as `avrdude`, i.e. to provide a way to flash a compiled
 .hex file onto a microcontroller.
@@ -86,6 +85,6 @@ actions:
 
 ## Copying
 
-Copyright (C) 2022-2024 Rex McKinnon \
+Copyright (C) 2022-2025 Rex McKinnon \
 This software is released under the University of Illinois/NCSA
 Open Source License. Check the LICENSE file for more details.
