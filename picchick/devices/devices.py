@@ -92,7 +92,7 @@ class MemoryRange:
 
 # The following is an f-string template to use for device sub-classes that
 # would like to add their own features in the string representation.
-_DEVICE_TEMPLATE = "family='{self.family}', arch='{self.arch}', chip_id='{self.chip_id}', flash={self.flash}, config={self.config}, word_size={self.word_size}, row_size={self.row_size}"
+_DEVICE_TEMPLATE = "family='{self.family}', arch='{self.arch}', chip_id='{self.chip_id}', word_size={self.word_size}, row_size={self.row_size}, flash={self.flash}, config={self.config}"
 # __DEVICE_DEFAULT = "family='{self.family}', arch='{self.arch}', chip_id='{self.chip_id}', flash={self.flash}, config={self.config}, word_size={self.word_size}, row_size={self.row_size}, page_size={self.page_size}"
 
 class Device:
@@ -109,6 +109,8 @@ class Device:
     byte_order = 'big'   # The order of bytes in words. (big/little)
     word_size = 1    # The length of a word in bytes.
     row_size = 1     # The length of a row in words. A row is the smallest writeable block.
+    address_div = 1  # Divisor of address locations in hexfile for actual device memory locations
+    address_inc = 1  # Increment address by this amount every word
     # page_size = None    # The length of a page in words. A page is the largest transmittable block.
 
     def __init__(self, chip_id):
@@ -147,6 +149,7 @@ class PICDevice(Device):
     family = 'pic'
     byte_order = 'big'
     word_size = 2
+    address_div = 2  # Addresses in hexfile are 2x that of actual memory locations
 
     # Memory Ranges
     user_id = None
@@ -183,6 +186,66 @@ class PICDevice(Device):
 
         # (EEPROM) Memory range that spans the eeprom flash region
         #   'EEPROM' : start-end
+        if devicefile.has_option(self.chip_id, 'EEPROM'):
+            eeprom_range = devicefile.get(self.chip_id, 'EEPROM').split('-')
+            self.eeprom = MemoryRange(
+                start=int(eeprom_range[0], base=16),
+                end=int(eeprom_range[1], base=16)
+            )
+            self.eeprom.memtype = 'eeprom'
+
+        # (Blocksize) The size of a flash writing block
+        #   'FLASH_WRITE' : <int>
+        self.row_size = int(devicefile.get(self.chip_id, 'FLASH_WRITE'), base=16)
+
+    def __repr__(self):
+        return eval('f"PICDevice(%s)"' % (_DEVICE_TEMPLATE + ', user_id={self.user_id}, eeprom={self.eeprom}'))
+
+
+class PIC18Device(Device):
+    # Fill in static information
+    family = 'pic'
+    byte_order = 'little'
+    word_size = 2
+    address_inc = 2  # Each instruction word spans two memory locations
+
+    # Memory Ranges
+    user_id = None
+    eeprom = None
+
+    def configure(self, devicefile):
+        # ARCH=<processor_architecture>
+        #   PIC18 corresponds to the PIC18 architecture.
+        self.arch = devicefile.get(self.chip_id, 'ARCH')
+
+        # ROMSIZE=<size_of_rom>
+        #   Size of program memory (bytes) in hex
+        self.flash = MemoryRange(length=int(devicefile.get(self.chip_id, 'ROMSIZE'), base=16))
+
+        #   'FLASHTYPE' : Type of flash
+        # self.flash.memtype = devicefile.get(self.chip_id, 'FLASHTYPE')
+
+        # CFGMEM=<range_start>-<range_end>
+        #   The region in memory in which the configuration bits are programmed.
+        config_range = devicefile.get(self.chip_id, 'CFGMEM').split('-')
+        self.config = MemoryRange(
+            start=int(config_range[0], base=16),
+            end=int(config_range[1], base=16)
+        )
+        self.config.memtype = 'config'
+
+
+        # USERIDMEM=<range_start>-<range_end>
+        #   The region in memory in which the user ids are programmed.
+        id_range = devicefile.get(self.chip_id, 'USERIDMEM').split('-')
+        self.user_id = MemoryRange(
+            start=int(id_range[0], base=16),
+            end=int(id_range[1], base=16)
+        )
+        self.user_id.memtype = 'user_id'
+
+        # EEPROM=<range_start>,<range_end>
+        #   The addressable region of memory which contains EEPROM
         eeprom_range = devicefile.get(self.chip_id, 'EEPROM').split('-')
         self.eeprom = MemoryRange(
             start=int(eeprom_range[0], base=16),
@@ -190,12 +253,15 @@ class PICDevice(Device):
         )
         self.eeprom.memtype = 'eeprom'
 
-        # (Blocksize) The size of a flash writing block
-        #   'FLASH_WRITE' : <int>
-        self.row_size = int(devicefile.get(self.chip_id, 'FLASH_WRITE'), base=16)
+        # FLASH_EW=<erase_size,write_size>
+        #   Defines the block erase size (bytes) of flash erase operations,
+        #   and the buffered write size (bytes) of flash write operations.
+        flash_ew = devicefile.get(self.chip_id, 'FLASH_EW').split(',')
+        self.row_size = int(flash_ew[1], base=16)
+        # self.row_size = 2
 
     def __repr__(self):
-        return eval('f"PICDevice(%s)"' % _DEVICE_TEMPLATE)
+        return eval('f"PIC18Device(%s)"' % (_DEVICE_TEMPLATE + ', user_id={self.user_id}, eeprom={self.eeprom}'))
 
 
 MCHP_PACKS_ENV = 'MCHP_PACKS'
@@ -269,7 +335,12 @@ class MCHPDevicePackConfigurator:
         print(devicefile_path)
         devicefile = configparser.ConfigParser(strict=False)
         devicefile.read(devicefile_path)
-        device = PICDevice(self.chip_id)     # Create device object
+
+        if self.chip_id.startswith('18'):
+            device = PIC18Device(self.chip_id)   # Create PIC18 device
+        else:
+            device = PICDevice(self.chip_id)     # Create PIC10/12/16 device
+        
         device.configure(devicefile)    # Configure based on devicefile
         self.device = device
 

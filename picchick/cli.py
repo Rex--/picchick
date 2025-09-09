@@ -3,6 +3,7 @@ import argparse
 import os.path
 import sys
 import importlib.metadata
+import traceback
 
 from . import hexfile
 from . import programmer
@@ -16,7 +17,7 @@ A utility for programming and debugging microcontrollers.
 '''
 
 USAGE = '''\
-picchick [-d <mcu>] [-c <programmer>] [-r <addr> [len] | -w <addr> <word> | -f] [-e [addr]] [-v] [hexfile]
+picchick [-d <mcu>] [-c <programmer>] [-r <addr> [len] | -w <addr> <word> | -e [addr] | -f] [-v] [hexfile]
        picchick [-d <mcu>] [--map | --list-ports] [hexfile]
 '''
 
@@ -124,42 +125,37 @@ def run():
         parser.error('at least one action argument is required')
 
 
+    if args.device is None:
+        # Device flag not defined, create empty one
+        xdevice = devices.Device('')
+    else:
+        try:
+            xdevice = devices.get_device(args.device)
+        except Exception as e:
+            # traceback.print_exc()
+            print(f"picchick: error: failed to load device '{ args.device }': " + str(e))
+            sys.exit(1)
+        if xdevice is None:
+            print(f"picchick: error: could not find device '{ args.device }'")
+            sys.exit(1)
+        print(f"Found device: { xdevice }")
     # Firstly, if we need the hexfile, check if it exists and load it.
     # If not, immediatly exit with a helpful message
     if hexfile_reqd:
         if args.hexfile is None:
-            print(f"Missing argument: hexfile")
-            sys.exit(1)
+            parser.error("missing arguemnt: <hexfile>")
         elif args.device is None:
             if programmer_reqd:
                 # Allow local operations on hexfile without specifying device
-                print("Missing argument: -d, --device chipID")
-                sys.exit(1)
+                parser.error("missing argument: -d, --device chipID")
         elif not os.path.isfile(args.hexfile):
-            print(f"Could not find hexfile: { args.hexfile}")
+            print(f"picchick: error: could not find hexfile: '{ args.hexfile}'")
             sys.exit(1)
-
-        if args.device is None:
-            # Device flag not defined, create empty one
-            xdevice = devices.Device('')
-        else:
-            try:
-                xdevice = devices.get_device(args.device)
-            except Exception as e:
-                # print(f"WARNING: Could not find device: { args.device } -- Using defaults")
-                # if not programmer_reqd:
-                #     # We allow local operations with a skeleton device
-                #     xdevice = devices.Device(args.device)
-                # else:
-                parser.error(f"failed to load device '{ args.device }': " + str(e))
-            if xdevice is None:
-                parser.error(f"could not find device '{ args.device }'")
-            print(f"Found device: { xdevice }")
 
         print(f"Using hexfile: { args.hexfile }")
         # Load up our hexfile and sort the words into device's memory regions
         hexobj = hexfile.loadHexfile(args.hexfile)
-        hexobj.decode_words(word_size=xdevice.word_size, byte_order=xdevice.byte_order)
+        hexobj.decode_words(word_size=xdevice.word_size, address_div=xdevice.address_div, address_inc=xdevice.address_inc, byte_order=xdevice.byte_order)
         hexobj.sort_memory(xdevice)
 
     # We now have all the hexfile reqs, so take care of the actions
@@ -179,16 +175,14 @@ def run():
 
         # Check if programmer exists
         if args.programmer is None:
-            print("Missing argument: -c")
-            sys.exit(1)
+            parser.error("missing argument: -c")
         else:
             chosen_programmer = programmer.registry[args.programmer]
             # Connect to programmer
-            dev = chosen_programmer(args)
+            dev = chosen_programmer(args, xdevice)
             if not dev.connect():
-                print(f"ERROR: Failed to connect to programmer: { args.programmer } Exiting...")
+                print(f"failed to connect to programmer: '{ args.programmer }'")
                 sys.exit(1)
-
 
     # We now have all the programmer reqs, so do the actions that only
     # need the programmer:
@@ -213,24 +207,46 @@ def run():
             # And further group the rows into pages
             hexobj.page_rows(page_size=dev.page_size)
             success_blocks = 0
+            success_chunks = 0
             print(f"Starting write of flash...")
-            for address, block in hexobj.pages.items():
-                if dev.write(address, block):
-                    success_blocks += 1
-            print(f"Successfully wrote {success_blocks*dev.page_size} bytes in {success_blocks} chunks.")
-
-            for address, word in hexobj.config.items():
-                dev.write(address, programmer.INTBYTES(word))
+            for address, block in hexobj.rows.items():
+                bytes_written = dev.write(address, block)
+                if bytes_written > 0:
+            # for address, word in hexobj.flash.items():
+                # if dev.write(address, word.to_bytes(2, 'big')):
+                    success_blocks += bytes_written
+                    success_chunks += 1
+                else:
+                    success_blocks *= -1
+                    break
+            if success_blocks > 0:
+                print(f"Successfully wrote {success_blocks} bytes in {success_chunks} chunks.")
+                print("Starting write of config words...")
+                for address, word in hexobj.config.items():
+                    dev.write(address, programmer.INTBYTES(word))
+                # for address, word in hexobj.user_id.items():
+                #     dev.write(address, programmer.INTBYTES(word))
+                print("Flashing successful!")
+            else:
+                print(f"Failed after writing {success_blocks * -1} bytes in {success_chunks} chunks.")
         elif args.write:
-            dev.write(int(args.write[0], 0), int(args.write[1]).to_bytes(2, 'big'))
+            dev.write(int(args.write[0], 0), int(args.write[1], 0).to_bytes(2, 'big'))
             # dev.word(int(args.write[0], base=16), int(args.write[1], base=16))
         
         if args.read:
             if (len(args.read) < 2):
                 args.read.extend('1')
-            read_resp = dev.read(int(args.read[0], base=16), int(args.read[1]))
+            read_resp = dev.read(int(args.read[0], base=0), int(args.read[1], 0))
             if read_resp is not None:
-                print(read_resp.hex(' ', -2))
+                if xdevice.family is not None:
+                    readfile = hexfile.Hexfile()
+                    readfile.flash = read_resp
+                    readfile.word_size = xdevice.word_size
+                    print(readfile)
+                else: # Print memory location in <addr>: <word> format
+                    for addr, data in read_resp.items():
+                        print(f"{hex(addr)}: {hex(data)}")
+                        # print(resp.hex(' ', 3))
             else:
                 fail = True
         

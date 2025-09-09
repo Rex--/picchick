@@ -4,25 +4,88 @@
 
 from .programmer import *
 
-# PreDefined Characters and Commands
-SEP = ASCII(':')
-OK = ASCII('OK')
-GREETING = ASCII('HELLO')
-BYE = ASCII('BYE')
-START = ASCII('START')
-STOP = ASCII('STOP')
-ADDR = ASCII('ADDR')
-ROW = ASCII('ROW')
-WORD = ASCII('WORD')
-READ = ASCII('READ')
-ERASE = ASCII('ERASE')
+import time
+
+# PICSTICK protocol commands and responses
+PICSTICK_PING = ASCII('I')
+PICSTICK_START_MSB = ASCII('S')
+PICSTICK_START_LSB = ASCII('L')
+PICSTICK_QUIT = ASCII('Q')
+PICSTICK_COMMAND = ASCII('C')
+PICSTICK_PAYLOAD = ASCII('P')
+PICSTICK_READ = ASCII('R')
+# 6-bit commands
+PICSTICK_SHORT_COMMAND = ASCII('c')
+PICSTICK_SHORT_PAYLOAD = ASCII('p')
+PICSTICK_SHORT_READ = ASCII('r')
+
+RESP_PONG = ASCII('O')
+RESP_OK = ASCII('K')
+RESP_ERROR = ASCII('E')
+RESP_UNKNOWN = ASCII('?')
+
+# 8-bit ICSP commands
+ICSP_ADDR_LOAD =    b'\x80'
+ICSP_ADDR_INC =     b'\xF8'
+ICSP_ERASE_BULK =   b'\x18'
+ICSP_ERASE_SECT =   b'\xF0'
+ICSP_READ =         b'\xFC'
+ICSP_READ_INC =     b'\xFE'
+# PIC14EX
+ICSP_LOAD =         b'\x00'
+ICSP_LOAD_INC =     b'\x02'
+ICSP_BEGIN_INT =    b'\xE0'
+ICSP_BEGIN_EXT =    b'\xC0'
+ICSP_END_EXT =      b'\x82'
+# PIC18
+ICSP_WRITE_INC =    b'\xE0'
+ICSP_WRITE =        b'\xC0'
+
+# 6-bit ICSP commands
+ICSP_S_ADDR_INC =   b'\x06'
+ICSP_S_ADDR_RESET = b'\x16'
+ICSP_S_ERASE_BULK = b'\x09'
+ICSP_S_ERASE_ROW =  b'\x11'
+ICSP_S_READ_DATA =  b'\x04'
+ICSP_S_LOAD_CFG =   b'\x00'
+ICSP_S_LOAD_DATA =  b'\x02'
+ICSP_S_BEGIN_INT =  b'\x18'
+ICSP_S_BEGIN_EXT =  b'\x09'
+ICSP_S_END_EXT =    b'\x0A'
+
+
+def ADDR_BYTES(addr):
+    len=2
+    if addr > 65535:
+        len = 3
+    return len.to_bytes(1, 'big') + addr.to_bytes(len, 'big')
+
+def PAYLOAD_NUMBER(num):
+    return num.to_bytes(3, 'big')
 
 @register_programmer('picstick')
 class PicstickProgrammer(SerialProgrammer):
 
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, mcu=None):
+        super().__init__(args, mcu)
+        self._baud = self._conn.baudrate = args.baud
         self.page_size = 128
+        self.use_bulk_erase = args.bulk_erase
+        self._14e_address = 0xffffffffffffff
+    
+    @staticmethod
+    def add_args(parser):
+        parser.add_argument('-P', '--port',
+            metavar='port',
+            help='programmer serial port')
+        parser.add_argument('-B', '--baud',
+            type=int,
+            default=76800,
+            metavar='baud',
+            help='serial connection baudrate',)
+        parser.add_argument('--bulk-erase',
+            action='store_true',
+            help='use bulk erase when erasing device')
 
     def connect(self):
         try:
@@ -30,91 +93,320 @@ class PicstickProgrammer(SerialProgrammer):
         except serial.SerialException:
             print(f"Failed to open serial port: { self._port }")
             return False
-        wait_print(f"Connecting to picstick: { self._port } @ { self._baud }\nSending greeting...")
+
+        wait_print(f"Connecting to picstick: { self._port } @ { self._baud }bps...")
         self._conn.flushInput()
-        self._conn.write(GREETING + SEP)
-        if self.__check_response(expected_resp=GREETING) is not True:
-            print('device failed to respond')
+        self._conn.write(PICSTICK_PING)
+        if not self.__check_response(expected_resp=RESP_PONG):
+            print(FAIL)
             self._conn.close()
             return False
-        print("connected to programmer")
+        print(SUCCESS)
+
         wait_print('Entering programming mode...')
         self._conn.flushInput()
-        self._conn.write(START + SEP)
-        if self.__check_response() is not True:
-            print('failed. Closing connection')
+        if self._mcu.arch == 'PIC14E':
+            self._conn.write(PICSTICK_START_LSB)
+        elif self._mcu.arch == 'PIC14EX' or self._mcu.arch == 'PIC18':
+            self._conn.write(PICSTICK_START_MSB)
+        else:
+            print(f"Unsupported architecture: {self._mcu.arch}")
             self.disconnect()
             return False
-        print('success')
+        if not self.__check_response():
+            print(FAIL)
+            self.disconnect()
+            return False
+        print(SUCCESS)
         return True
     
     def disconnect(self):
         wait_print('Leaving programming mode...')
-        # print(self._conn.read_all())
         self._conn.flushInput()
-        self._conn.write(STOP + SEP)
-        if self.__check_response() is not True:
-            print('failed. Closing connection')
+        self._conn.write(PICSTICK_QUIT)
+        if not self.__check_response():
+            print(FAIL)
             self._conn.close()
             return False
-        print ('success')
-        wait_print('Disconnecting from programmer...')
-        self._conn.write(BYE + SEP)
-        resp = self.__check_response(expected_resp=BYE)
+        print(SUCCESS)
         self._conn.close()
-        if resp is not True:
-            print('GOODBYE')
-            return False
-        print('goodbye')
         return True
 
     def write(self, address, data):
         wait_print(f"Writing {len(data)} bytes to {hex(address)}...")
-        if len(data) == 2:
-            # Write a single word
-            cmd = WORD + SEP + INTBYTES(address) + SEP + data
-        elif len(data) == self.page_size:
-            # Write a whole row
-            cmd = ROW + SEP + INTBYTES(address) + SEP + data
+        if self._mcu.arch == 'PIC14E':
+            return self._write_14e(address, data)
+        elif self._mcu.arch == 'PIC14EX':
+            return self._write_14ex(address, data)
+        elif self._mcu.arch == 'PIC18':
+            return self._write_18(address, data)
         else:
-            # We should pad it or chunk to size.
-            # Return an error until thats implemented.
-            print(f'failed\nIncompatible data size: {len(data)}')
+            print(f"Unsupported architecture: {self._mcu.arch}")
             return False
-        self._conn.write(cmd)
-        if self.__check_response() is not True:
-            print('failed')
+
+    def _write_14e(self, address, data):
+        # First we either reset the PC to 0 or 0x8000 based on address
+        if address > 0x7fff:
+            # Location 0x8000 and above need load config command to set PC to 0x8000
+            self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x00\x00' + data)
+            if not self.__check_response():
+                print(FAIL)
+                return 0
+            self._14e_address = 0x8000
+            inc_count = address - 0x8000
+        else:
+            if address > self._14e_address:
+                # Only increment needed amount
+                inc_count = address - self._14e_address
+            else:
+                # Reset PC to 0
+                self._conn.write(PICSTICK_SHORT_COMMAND + b'\x16')
+                if not self.__check_response():
+                    print(FAIL)
+                    return 0
+                self._14e_address = 0
+                inc_count = address
+
+        # Next we increment the PC to the address
+        for i in range(inc_count):
+            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06')
+            if not self.__check_response():
+                print(FAIL)
+                return 0
+            self._14e_address += 1
+
+        # Load data latches if writing flash
+        if address < 0x8000:
+            for i in range(0, len(data), 2):
+                self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x02\x00' + data[i:i+2]) # Load data into latches
+                if not self.__check_response():
+                    print(FAIL)
+                    return 0
+                if i+2 < len(data):
+                    self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06') # Increment address
+                    if not self.__check_response():
+                        print(FAIL)
+                        return 0
+                    self._14e_address += 1
+        
+        # Send begin programming command
+        self._conn.write(PICSTICK_SHORT_COMMAND + b'\x08')
+        if not self.__check_response():
+            print(FAIL)
+            return 0
+
+        print(SUCCESS)
+        return len(data)
+
+    def _write_14ex(self, address, data):
+        print('PIC14EX architecture not implemented')
+        return False
+
+    def _write_18(self, address, data):
+        print('PIC18 architecture not implemented')
+        return False
+        # if len(data) == 2:
+        #     # Write a single word
+        #     cmd = WORD + SEP + ADDR_BYTES(address) + len(data).to_bytes(1, 'big') + data
+        #     print("WORD:" + cmd[5:].hex())
+        # elif len(data) == self.page_size:
+        #     # Write a whole row
+        #     cmd = ROW + SEP + INTBYTES(address) + SEP + data
+        #     print("ROW:" + cmd[4:].hex())
+        # else:
+        #     # We should pad it or chunk to size.
+        #     # Return an error until thats implemented.
+        #     print(f'failed\nIncompatible data size: {len(data)}')
+        #     return False
+        # self._conn.write(cmd)
+
+        # Set PC address
+        self._conn.write(PICSTICK_PAYLOAD + ICSP_ADDR_LOAD + PAYLOAD_NUMBER(address))
+        if not self.__check_response():
+            print('failed to set PC')
             return False
+
+        # Write data to PC
+        self._conn.write(PICSTICK_PAYLOAD + ICSP_WRITE + b'\x00' + data)
+        if not self.__check_response():
+            print('failed to write data')
+            return False
+
         print('success')
         return True
 
     def read(self, address, length):
-        wait_print("Reading %i words from address: 0x%.4X..." % (length, address))
-        read_resp = bytearray()
+        if self._mcu.arch == 'PIC14E':
+            return self._read_14e(address, length)
+        elif self._mcu.arch == 'PIC14EX':
+            return self._read_14ex(address, length)
+        elif self._mcu.arch == 'PIC18':
+            return self._read_18(address, length)
+        else:
+            print(f"Unsupported architecture: {self._mcu.arch}")
+            return {}
+
+    def _read_14e(self, address, length):
+        wait_print("Reading %i words from address: 0x%X..." % (length, address))
+        read_resp = {}
+
+        # First we either reset the PC to 0 or 0x8000 based on address
+        if address > 0x7fff:
+            # Location 0x8000 and above need load config command to set PC to 0x8000
+            self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x00' +PAYLOAD_NUMBER(0x3FFF))
+            inc_count = address - 0x8000
+        else:
+            # Reset PC to 0
+            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x16')
+            inc_count = address
+        if not self.__check_response():
+            print(FAIL)
+            return {}
+
+        # Next we increment the PC to the address
+        for i in range(inc_count):
+            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06')
+            if not self.__check_response():
+                print(FAIL)
+                return {}
+
         for word in range(length):
-            self._conn.write(READ + SEP + INTBYTES(address))
-            if self.__check_response() is not True:
-                print('failed')
-                return None
-            resp = self._conn.read(size=2)
-            read_resp.extend(resp)
+            self._conn.write(PICSTICK_SHORT_READ + b'\x04')
+            resp = self._conn.read(size=3)
+            resp_word = int.from_bytes(resp[1:3], 'big') >> 1
+            resp_word = int('{:014b}'.format(resp_word)[::-1], 2) #reverse bit order
+            read_resp[address] = resp_word & 0x3fff
+            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06')
+            if not self.__check_response():
+                print(FAIL)
+                return {}
             address += 1
+
+        print(SUCCESS)
+        return read_resp
+
+    def _read_14ex(self, address, length):
+        wait_print("Reading %i words from address: 0x%.4X..." % (length, address))
+        read_resp = {}
+        self._conn.write(PICSTICK_PAYLOAD + ICSP_ADDR_LOAD + PAYLOAD_NUMBER(address))
+        if not self.__check_response():
+            print('failed')
+            return {}
+        for word in range(length):
+            self._conn.write(PICSTICK_READ + ICSP_READ_INC)
+            resp = self._conn.read(size=3)
+            resp_word = int.from_bytes(resp, 'big') >> 1
+            read_resp[address] = resp_word
+            address += 1
+        print('success')
+        return read_resp
+
+    def _read_18(self, address, length):
+        wait_print("Reading %i words from address: 0x%X..." % (length, address))
+        read_resp = {}
+        self._conn.write(PICSTICK_PAYLOAD + ICSP_ADDR_LOAD + PAYLOAD_NUMBER(address))
+        if not self.__check_response():
+            print('failed')
+            return {}
+        for word in range(length):
+            # print(bytes(PICSTICK_READ + ICSP_READ_INC))
+            self._conn.write(PICSTICK_READ + ICSP_READ)
+            resp = self._conn.read(size=3)
+            resp_word = int.from_bytes(resp, 'big') >> 1
+            read_resp[address] = resp_word >> 8
+            read_resp[address+1] = resp_word & 0xFF
+            self._conn.write(PICSTICK_COMMAND + ICSP_ADDR_INC)
+            if not self.__check_response():
+                print('failed')
+                return {}
+            address +=2
+
         print('success')
         return read_resp
     
     def erase(self, address):
-        wait_print("Erasing Row: 0x%.4X..." % (address))
-        self._conn.write(ERASE + SEP + INTBYTES(address))
-        if self.__check_response() is not True:
+        if self._mcu.arch == 'PIC14E':
+            return self._erase_14e(address)
+        elif self._mcu.arch == 'PIC14EX':
+            return self._erase_14ex(address)
+        elif self._mcu.arch == 'PIC18':
+            return self._erase_18(address)
+        else:
+            print(f"Unsupported architecture: {self._mcu.arch}")
+            return False
+
+    def _erase_14e(self, address):
+        erase_command = b'\x11'
+        if self.use_bulk_erase:
+            wait_print("Bulk erasing device with address: 0x%X" % address)
+            erase_command = b'\x09'
+        else:
+            wait_print("Erasing section with address: 0x%X..." % (address))
+
+        # First we either reset the PC to 0 or 0x8000 based on address
+        if address > 0x7fff:
+            # Location 0x8000 and above need load config command to set PC to 0x8000
+            self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x00\x00' + data)
+            inc_count = address - 0x8000
+        else:
+            # Reset PC to 0
+            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x16')
+            inc_count = address
+        if not self.__check_response():
+            print(FAIL)
+            return False
+
+        # Next we increment the PC to the address
+        for i in range(inc_count):
+            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06')
+            if not self.__check_response():
+                print(FAIL)
+                return False
+        
+        # Send erase command
+        self._conn.write(PICSTICK_SHORT_COMMAND + erase_command)
+        if not self.__check_response():
+            print(FAIL)
+            return False
+
+        print(SUCCESS)
+        return True
+
+    def _erase_14ex(self, address):
+        print('PIC14EX architecture not implemented')
+        return False
+
+    def _erase_18(self, address):
+        erase_command = ICSP_ERASE_SECT
+        if self.use_bulk_erase:
+            wait_print("Bulk erasing device with address: 0x%X" % address)
+            erase_command = ICSP_ERASE_BULK
+        else:
+            wait_print("Erasing section with address: 0x%X..." % (address))
+
+        # Set PC to address that we want to erase (or section)
+        self._conn.write(PICSTICK_PAYLOAD + ICSP_ADDR_LOAD + PAYLOAD_NUMBER(address))
+        if not self.__check_response():
             print('failed')
             return False
+        
+        # Send erase command
+        self._conn.write(PICSTICK_COMMAND + erase_command)
+        if not self.__check_response():
+            print('failed')
+            return False
+
         print('success')
         return True
 
-    def __check_response(self, expected_resp=OK):
-        resp = self._conn.read_until(expected=SEP)
+    def __check_response(self, expected_resp=RESP_OK):
+        resp = self._conn.read()
         # print(resp)
-        if resp.rstrip(SEP) == expected_resp:
+        if resp == expected_resp:
             return True
         else:
-            return resp
+            if resp == RESP_UNKNOWN:
+                print('Error: Unknown Command: ' + str(resp))
+            else:
+                print('Error: Unknown Response: ' + str(resp))
+            return False
