@@ -1,22 +1,34 @@
-# This module handles the device files that Microchip distributes with the xc8
-# compiler. It searches through a list of common locations before deciding
-# where to extract the needed data from. Currently it searches in the following
-# order:
+# This modules handles the device files that are used by picchick to determine
+# things like flashsize, flash/config/eeprom ranges, etc. Microchip distributes
+# Device Family Packs (DFPs) which include these device files. Stripped down
+# versions of the files are included in the module, however they could be out
+# of date or missing a specific device. Because of that, other locations are
+# searched first, in the following order:
 #
-#   1. Command line flags
-#       TODO: Not implemented. Maybe a --xc8-toolchain flag?
+#   0. Path to file
+#       If the given device ID is a path to a file, then read the given file as
+#       the device file. This allows custom devices.
 #
-#   2. Enviornment Variable
-#       NOTE: The default variable checked is ${XC8_TOOLCHAIN_ROOT}
-#           This is a random environment variable that the aur package
-#           'microchip-mplabxc8-bin' package creates, but I like it.
+#   1. Command line flag
+#       TODO: Not implemented. Maybe a --dfp flag?
 #
-#   3. Default xc8 compiler installation paths
+#   2. Enviornment Variable - 'MCHP_PACKS'
+#       Checks to see if the enviornment vaiable 'MCHP_PACKS' is set to a
+#       directory that contains the device file.
+#
+#   3. Default Microchip devce pack location - '~/.mchp_packs'
+#       MPLAB stores these at:
+#           '~/.mchp_packs/Microchip/<version>/xc8/pic/dat/ini/*.ini'
+#       However, we detect any files in the '~/.mchp_packs' directory.
+#
+#   4. Included device files
+#       The embedded device files are searched for the given device ID.
 #
 
 import os
 import configparser
 import pathlib
+from importlib.resources import files
 
 
 def get_device(dev_id):
@@ -27,7 +39,7 @@ def get_device(dev_id):
         device = CustomDeviceConfigurator().readDeviceFile(dev_id)
     else:
         # We only support xc8 pic devices currently.
-        device = XC8CompilerConfigurator().readDeviceFile(dev_id)
+        device = MCHPDevicePackConfigurator().readDeviceFile(dev_id)
 
     return device
 
@@ -186,105 +198,81 @@ class PICDevice(Device):
         return eval('f"PICDevice(%s)"' % _DEVICE_TEMPLATE)
 
 
-# Default install paths for the xc8 compiler
-XC8_DEFAULT_PATHS = [
-    '/opt/microchip/xc8',                   # linux
-    '/Applications/microchip/xc8',          # Mac (untested)
-    'c:/Program Files (x86)/Microchip/xc8'  # Windows (untested)
-]
+MCHP_PACKS_ENV = 'MCHP_PACKS'
 
-# The name of the optional environment variable that holds the path to a
-# specific xc8 compiler
-XC8_ENV_VARIABLE = 'XC8_TOOLCHAIN_ROOT'
+class MCHPDevicePackConfigurator:
 
+    # Functions that search for device file. Should be called in order
+    search_funcs = None
 
-# This class handles searching the local filesystem for the xc8 compiler so
-# we can use its device files
-class XC8CompilerConfigurator:
+    # CLI flag value will be set if needed
+    cli_flag = None
 
-    xc8_paths = {}      # Dict of 'ver':[path] of found xc8 toolchains
-        # Also contains a 'default' key that points to single root path
+    # device will be set if found
+    device = None
 
-    search_paths = []   # List of paths to search for toolchains. Could be a
-        # toolchain root OR a directory that includes multiple toolchains.
+    def __init__(self, cli_flag=None):
+        self.search_funcs = [
+            self.__searchCLIFlag,
+            self.__searchEnvVar,
+            self.__searchInstalledDFPs,
+            self.__searchIncludedDFPs
+        ]
 
-    # Search_paths is the paths to search for compilers. If it is a list,
-    # each path is added to the list of paths to search for toolchains. If it
-    # is a single string, then only that single path is searched and an error
-    # thrown if no compiler is found.
-    def __init__(self, search_paths=XC8_DEFAULT_PATHS):
-
-        # Check if search_paths is a string
-        if isinstance(search_paths, str):
-            self.search_paths.append(search_paths)
-        
-        # Assume its an iterable
-        else:
-            # Add environment variable path to search path.
-            if XC8_ENV_VARIABLE in os.environ:
-                self.search_paths.append(os.getenv(XC8_ENV_VARIABLE))
-                # TODO: Skip other paths if this exists
-
-            # Add given search_paths
-            self.search_paths.extend(search_paths)
-        
-        # Find compilers using the given paths
-        self._findCompilers()
-
-        # Set default compiler to the latest version
-        self.xc8_paths['default'] = self.xc8_paths[sorted(self.xc8_paths)[-1]][0]
-    
-    # Go through the various locations and find installed compilers
-    def _findCompilers(self):
-
-        # Each search path could be a toolchain dir, or a directory containing toolchains.
-        for search_path in self.search_paths:
-
-            test_path = pathlib.Path(search_path)
-
-            if test_path.is_dir():
-                # Directory exists:
-
-                # Check if it is a toolchain directory by seeing if it is named
-                # 'vX.X' and contains a directory called 'pic'.
-                if test_path.name.startswith('v') and (test_path/'pic').is_dir():
-
-                    # Create version in xc8 list if doesnt exist
-                    if test_path.name not in self.xc8_paths:
-                        self.xc8_paths[test_path.name] = [test_path]
-                    
-                    # Append path only if its not a duplicate
-                    else:
-                        if test_path not in self.xc8_paths[test_path.name]:
-                            self.xc8_paths[test_path.name].append(test_path)
-                
-                # If its not a toolchain root, check if it contains toolchains
-                else:
-
-                    for test_subpath in test_path.iterdir():
-                        # Check each subdir is a toolchain directory by seeing if it is named
-                        # 'vX.X' and contains a directory called 'pic'.
-                        if test_subpath.name.startswith('v') and (test_subpath/'pic').is_dir():
-
-                            # Create version in xc8 list if doesn't exist
-                            if test_subpath.name not in self.xc8_paths:
-                                self.xc8_paths[test_subpath.name] = [test_subpath.name]
-                            else:
-                                if test_subpath not in self.xc8_paths[test_subpath.name]:
-                                    self.xc8_paths[test_subpath.name].append(test_subpath)
-
-    # Returns a XC8Device object corresponding to the given chip_id
     def readDeviceFile(self, chip_id):
-        # Device files live at <toolchain_root>/pic/dat/ini/<chipID>.ini
-        devicefile_path = self.xc8_paths['default'] / 'pic/dat/ini' / (chip_id.lower() + '.ini')
+        self.chip_id = chip_id
+        for searchFunc in self.search_funcs:
+            if searchFunc(chip_id):
+                break
+        return self.device
+    
+    def __searchCLIFlag(self, chip_id):
+        return False
 
+    def __searchEnvVar(self, chip_id):
+        if MCHP_PACKS_ENV not in os.environ:
+            # Env variable not set
+            return False
+        pack_env_path = os.getenv(MCHP_PACKS_ENV)
+        if not pack_env_path.is_dir():
+            # Env directory doesn't exist
+            return False
+        devicefile_paths = sorted(pack_env_path.rglob(chip_id.lower() + '.ini'))
+        if len(devicefile_paths) == 0:
+            # Env path doesn't contain device file
+            return False
+        self.__configureDeviceFromFile(devicefile_paths[0])
+        return True
+
+    
+    def __searchInstalledDFPs(self, chip_id):
+        pack_install_path = pathlib.Path.home() / ".mchp_packs"
+        if not pack_install_path.is_dir():
+            # Install directory does not exist
+            return False
+        devicefile_paths = sorted(pack_install_path.rglob(chip_id.lower() + '.ini'))
+        if len(devicefile_paths) == 0:
+            # Install path does not contain device file
+            return False
+        self.__configureDeviceFromFile(devicefile_paths[0]) # device file is first file we find
+        return True
+
+    def __searchIncludedDFPs(self, chip_id):
+        devicefile_path = files('picchick.devices.ini') / (chip_id.lower() + '.ini')
+        if devicefile_path.exists():
+            self.__configureDeviceFromFile(devicefile_path)
+            return True
+        else:
+            return False
+    
+    def __configureDeviceFromFile(self, devicefile_path):
+        print(devicefile_path)
         devicefile = configparser.ConfigParser(strict=False)
         devicefile.read(devicefile_path)
-
-        device = PICDevice(chip_id)     # Create device object
+        device = PICDevice(self.chip_id)     # Create device object
         device.configure(devicefile)    # Configure based on devicefile
+        self.device = device
 
-        return device       # Return device
 
 class CustomDeviceConfigurator:
     

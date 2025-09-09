@@ -1,0 +1,2 @@
+include picchick/devices/ini/*.ini
+include picchick/devices/ini/LICENSE

@@ -145,14 +145,16 @@ def run():
         else:
             try:
                 xdevice = devices.get_device(args.device)
-                print(f"Found device: { xdevice }")
-            except:
+            except Exception as e:
                 # print(f"WARNING: Could not find device: { args.device } -- Using defaults")
                 # if not programmer_reqd:
                 #     # We allow local operations with a skeleton device
                 #     xdevice = devices.Device(args.device)
                 # else:
-                parser.error(f"Could not find device: { args.device }")
+                parser.error(f"failed to load device '{ args.device }': " + str(e))
+            if xdevice is None:
+                parser.error(f"could not find device '{ args.device }'")
+            print(f"Found device: { xdevice }")
 
         print(f"Using hexfile: { args.hexfile }")
         # Load up our hexfile and sort the words into device's memory regions
