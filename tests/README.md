@@ -4,7 +4,7 @@ Various Test Files for picchick
 
 Blink Test Hexfiles
 -------------------
-These files contain super basic programs that toggle an I/O pin.
+These files contain super basic programs that toggle an I/O pin. The source of these programs can be found in `blink.c`
 
 - `blink-pic14e-pic161454.hex` -
     Uses the internal oscillator with default POR values (500 kHz) to blink
