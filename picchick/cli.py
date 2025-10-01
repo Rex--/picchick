@@ -196,16 +196,12 @@ def run():
         if args.flash:
             # If were going to flash the hexfile, we split the flash region up into rows.
             hexobj.chunk_flash(chunksize=xdevice.row_size)
-            # And further group the rows into pages
-            hexobj.page_rows(page_size=dev.page_size)
             success_blocks = 0
             success_chunks = 0
             print(f"Starting write of flash...")
             for address, block in hexobj.rows.items():
                 bytes_written = dev.write(address, block)
                 if bytes_written > 0:
-            # for address, word in hexobj.flash.items():
-                # if dev.write(address, word.to_bytes(2, 'big')):
                     success_blocks += bytes_written
                     success_chunks += 1
                 else:
@@ -214,10 +210,13 @@ def run():
             if success_blocks > 0:
                 print(f"Successfully wrote {success_blocks} bytes in {success_chunks} chunks.")
                 print("Starting write of config words...")
-                for address, word in hexobj.config.items():
-                    dev.write(address, programmer.INTBYTES(word))
-                # for address, word in hexobj.user_id.items():
-                #     dev.write(address, programmer.INTBYTES(word))
+                if xdevice.arch == 'PIC18':
+                    hexobj.chunk_config()
+                    for address, word in hexobj.config.items():
+                        dev.write(address, word)
+                else:
+                    for address, word in hexobj.config.items():
+                        dev.write(address, programmer.INTBYTES(word))
                 print("Flashing successful!")
             else:
                 print(f"Failed after writing {success_blocks * -1} bytes in {success_chunks} chunks.")

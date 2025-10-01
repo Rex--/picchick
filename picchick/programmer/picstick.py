@@ -49,8 +49,8 @@ ICSP_S_ERASE_ROW =  b'\x11'
 ICSP_S_READ_DATA =  b'\x04'
 ICSP_S_LOAD_CFG =   b'\x00'
 ICSP_S_LOAD_DATA =  b'\x02'
-ICSP_S_BEGIN_INT =  b'\x18'
-ICSP_S_BEGIN_EXT =  b'\x09'
+ICSP_S_BEGIN_INT =  b'\x08'
+ICSP_S_BEGIN_EXT =  b'\x18'
 ICSP_S_END_EXT =    b'\x0A'
 
 
@@ -148,7 +148,7 @@ class PicstickProgrammer(SerialProgrammer):
         # First we either reset the PC to 0 or 0x8000 based on address
         if address > 0x7fff:
             # Location 0x8000 and above need load config command to set PC to 0x8000
-            self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x00\x00' + data)
+            self._conn.write(PICSTICK_SHORT_PAYLOAD + ICSP_S_LOAD_CFG + b'\x00' + data)
             if not self.__check_response():
                 print(FAIL)
                 return 0
@@ -160,7 +160,7 @@ class PicstickProgrammer(SerialProgrammer):
                 inc_count = address - self._14e_address
             else:
                 # Reset PC to 0
-                self._conn.write(PICSTICK_SHORT_COMMAND + b'\x16')
+                self._conn.write(PICSTICK_SHORT_COMMAND + ICSP_S_ADDR_RESET)
                 if not self.__check_response():
                     print(FAIL)
                     return 0
@@ -169,7 +169,7 @@ class PicstickProgrammer(SerialProgrammer):
 
         # Next we increment the PC to the address
         for i in range(inc_count):
-            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06')
+            self._conn.write(PICSTICK_SHORT_COMMAND + ICSP_S_ADDR_INC)
             if not self.__check_response():
                 print(FAIL)
                 return 0
@@ -178,19 +178,19 @@ class PicstickProgrammer(SerialProgrammer):
         # Load data latches if writing flash
         if address < 0x8000:
             for i in range(0, len(data), 2):
-                self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x02\x00' + data[i:i+2]) # Load data into latches
+                self._conn.write(PICSTICK_SHORT_PAYLOAD + ICSP_S_LOAD_DATA + b'\x00' + data[i:i+2]) # Load data into latches
                 if not self.__check_response():
                     print(FAIL)
                     return 0
                 if i+2 < len(data):
-                    self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06') # Increment address
+                    self._conn.write(PICSTICK_SHORT_COMMAND + ICSP_S_ADDR_INC) # Increment address
                     if not self.__check_response():
                         print(FAIL)
                         return 0
                     self._14e_address += 1
         
         # Send begin programming command
-        self._conn.write(PICSTICK_SHORT_COMMAND + b'\x08')
+        self._conn.write(PICSTICK_SHORT_COMMAND + ICSP_S_BEGIN_INT)
         if not self.__check_response():
             print(FAIL)
             return 0
@@ -199,27 +199,34 @@ class PicstickProgrammer(SerialProgrammer):
         return len(data)
 
     def _write_14ex(self, address, data):
-        print('PIC14EX architecture not implemented')
-        return False
+        # Set PC address
+        self._conn.write(PICSTICK_PAYLOAD + ICSP_ADDR_LOAD + PAYLOAD_NUMBER(address))
+        if not self.__check_response():
+            print('failed to set PC')
+            return False
+        
+        # Load data latches
+        for i in range(0, len(data), 2):
+                load_cmd = ICSP_LOAD
+                if i+2 < len(data):
+                    load_cmd = ICSP_LOAD_INC # If there is at least 2 bytes remaining, use the increment load command
+                self._conn.write(PICSTICK_PAYLOAD + load_cmd + b'\x00' + data[i:i+2]) # Load data into latches
+                if not self.__check_response():
+                    print(FAIL)
+                    return 0
+        
+        # Send write command
+        self._conn.write(PICSTICK_COMMAND + ICSP_BEGIN_INT)
+        if not self.__check_response():
+            print(FAIL)
+            return 0
+        
+        print(SUCCESS)
+        return len(data)
+
+        
 
     def _write_18(self, address, data):
-        print('PIC18 architecture not implemented')
-        return False
-        # if len(data) == 2:
-        #     # Write a single word
-        #     cmd = WORD + SEP + ADDR_BYTES(address) + len(data).to_bytes(1, 'big') + data
-        #     print("WORD:" + cmd[5:].hex())
-        # elif len(data) == self.page_size:
-        #     # Write a whole row
-        #     cmd = ROW + SEP + INTBYTES(address) + SEP + data
-        #     print("ROW:" + cmd[4:].hex())
-        # else:
-        #     # We should pad it or chunk to size.
-        #     # Return an error until thats implemented.
-        #     print(f'failed\nIncompatible data size: {len(data)}')
-        #     return False
-        # self._conn.write(cmd)
-
         # Set PC address
         self._conn.write(PICSTICK_PAYLOAD + ICSP_ADDR_LOAD + PAYLOAD_NUMBER(address))
         if not self.__check_response():
@@ -227,7 +234,7 @@ class PicstickProgrammer(SerialProgrammer):
             return False
 
         # Write data to PC
-        self._conn.write(PICSTICK_PAYLOAD + ICSP_WRITE + b'\x00' + data)
+        self._conn.write(PICSTICK_PAYLOAD + ICSP_WRITE + b'\x00' + bytes([data[1]]) + bytes([data[0]]))
         if not self.__check_response():
             print('failed to write data')
             return False
@@ -253,11 +260,11 @@ class PicstickProgrammer(SerialProgrammer):
         # First we either reset the PC to 0 or 0x8000 based on address
         if address > 0x7fff:
             # Location 0x8000 and above need load config command to set PC to 0x8000
-            self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x00' +PAYLOAD_NUMBER(0x3FFF))
+            self._conn.write(PICSTICK_SHORT_PAYLOAD + ICSP_S_LOAD_CFG + PAYLOAD_NUMBER(0x3FFF))
             inc_count = address - 0x8000
         else:
             # Reset PC to 0
-            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x16')
+            self._conn.write(PICSTICK_SHORT_COMMAND + ICSP_S_ADDR_RESET)
             inc_count = address
         if not self.__check_response():
             print(FAIL)
@@ -265,18 +272,18 @@ class PicstickProgrammer(SerialProgrammer):
 
         # Next we increment the PC to the address
         for i in range(inc_count):
-            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06')
+            self._conn.write(PICSTICK_SHORT_COMMAND + ICSP_S_ADDR_INC)
             if not self.__check_response():
                 print(FAIL)
                 return {}
 
         for word in range(length):
-            self._conn.write(PICSTICK_SHORT_READ + b'\x04')
+            self._conn.write(PICSTICK_SHORT_READ + ICSP_S_READ_DATA)
             resp = self._conn.read(size=3)
             resp_word = int.from_bytes(resp[1:3], 'big') >> 1
             resp_word = int('{:014b}'.format(resp_word)[::-1], 2) #reverse bit order
             read_resp[address] = resp_word & 0x3fff
-            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06')
+            self._conn.write(PICSTICK_SHORT_COMMAND + ICSP_S_ADDR_INC)
             if not self.__check_response():
                 print(FAIL)
                 return {}
@@ -306,29 +313,29 @@ class PicstickProgrammer(SerialProgrammer):
         read_resp = {}
         self._conn.write(PICSTICK_PAYLOAD + ICSP_ADDR_LOAD + PAYLOAD_NUMBER(address))
         if not self.__check_response():
-            print('failed')
+            print(FAIL)
             return {}
         for word in range(length):
             # print(bytes(PICSTICK_READ + ICSP_READ_INC))
             self._conn.write(PICSTICK_READ + ICSP_READ)
             resp = self._conn.read(size=3)
             resp_word = int.from_bytes(resp, 'big') >> 1
-            read_resp[address] = resp_word >> 8
-            read_resp[address+1] = resp_word & 0xFF
+            read_resp[address+1] = resp_word >> 8
+            read_resp[address] = resp_word & 0xFF
             self._conn.write(PICSTICK_COMMAND + ICSP_ADDR_INC)
             if not self.__check_response():
-                print('failed')
+                print(FAIL)
                 return {}
             address +=2
 
-        print('success')
+        print(SUCCESS)
         return read_resp
     
     def erase(self, address):
         if self._mcu.arch == 'PIC14E':
             return self._erase_14e(address)
         elif self._mcu.arch == 'PIC14EX':
-            return self._erase_14ex(address)
+            return self._erase_18(address)
         elif self._mcu.arch == 'PIC18':
             return self._erase_18(address)
         else:
@@ -336,21 +343,21 @@ class PicstickProgrammer(SerialProgrammer):
             return False
 
     def _erase_14e(self, address):
-        erase_command = b'\x11'
+        erase_command = ICSP_S_ERASE_ROW
         if self.use_bulk_erase:
             wait_print("Bulk erasing device with address: 0x%X" % address)
-            erase_command = b'\x09'
+            erase_command = ICSP_S_ERASE_BULK
         else:
             wait_print("Erasing section with address: 0x%X..." % (address))
 
         # First we either reset the PC to 0 or 0x8000 based on address
         if address > 0x7fff:
             # Location 0x8000 and above need load config command to set PC to 0x8000
-            self._conn.write(PICSTICK_SHORT_PAYLOAD + b'\x00\x00' + data)
+            self._conn.write(PICSTICK_SHORT_PAYLOAD + ICSP_S_LOAD_CFG + b'\x00' + data)
             inc_count = address - 0x8000
         else:
             # Reset PC to 0
-            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x16')
+            self._conn.write(PICSTICK_SHORT_COMMAND + ICSP_S_ADDR_RESET)
             inc_count = address
         if not self.__check_response():
             print(FAIL)
@@ -358,7 +365,7 @@ class PicstickProgrammer(SerialProgrammer):
 
         # Next we increment the PC to the address
         for i in range(inc_count):
-            self._conn.write(PICSTICK_SHORT_COMMAND + b'\x06')
+            self._conn.write(PICSTICK_SHORT_COMMAND + ICSP_S_ADDR_INC)
             if not self.__check_response():
                 print(FAIL)
                 return False
@@ -371,10 +378,6 @@ class PicstickProgrammer(SerialProgrammer):
 
         print(SUCCESS)
         return True
-
-    def _erase_14ex(self, address):
-        print('PIC14EX architecture not implemented')
-        return False
 
     def _erase_18(self, address):
         erase_command = ICSP_ERASE_SECT
@@ -406,7 +409,7 @@ class PicstickProgrammer(SerialProgrammer):
             return True
         else:
             if resp == RESP_UNKNOWN:
-                print('Error: Unknown Command: ' + str(resp))
+                print('picchick: error: picstick: unknown command: ' + str(resp))
             else:
-                print('Error: Unknown Response: ' + str(resp))
+                print('picchick: error: picstick: unknown response: ' + str(resp))
             return False

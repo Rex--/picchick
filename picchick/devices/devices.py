@@ -206,8 +206,9 @@ class PIC18Device(Device):
     # Fill in static information
     family = 'pic'
     byte_order = 'little'
-    word_size = 2
-    address_inc = 2  # Each instruction word spans two memory locations
+    word_size = 1
+    address_inc = 1  # Each instruction word spans two memory locations
+    address_div = 1
 
     # Memory Ranges
     user_id = None
@@ -257,8 +258,8 @@ class PIC18Device(Device):
         #   Defines the block erase size (bytes) of flash erase operations,
         #   and the buffered write size (bytes) of flash write operations.
         flash_ew = devicefile.get(self.chip_id, 'FLASH_EW').split(',')
-        self.row_size = int(flash_ew[1], base=16)
-        # self.row_size = 2
+        # self.row_size = int(flash_ew[1], base=16)
+        self.row_size = 2
 
     def __repr__(self):
         return eval('f"PIC18Device(%s)"' % (_DEVICE_TEMPLATE + ', user_id={self.user_id}, eeprom={self.eeprom}'))

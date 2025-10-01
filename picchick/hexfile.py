@@ -121,6 +121,23 @@ class Hexfile:
         self.row_size = chunksize
         self.rows = rows
     
+    # Speciality function for pic18 devices to chunk config into 2-byte words
+    def chunk_config(self):
+        config = {}
+        for word_address in sorted(self.config):
+            config_address = word_address - (word_address % 2)
+            address_offset = word_address - config_address
+
+            if config_address not in config:
+                config[config_address] = bytearray(2)
+
+            config[config_address][address_offset] = self.config[word_address]
+        
+        for config_addr, config_word in config.items():
+            config[config_addr] = bytes(config_word)
+        self.config = config
+
+    
     def page_rows(self, page_size=1):
         '''Chunk rows into page sized blocks.'''
         pages = {}
